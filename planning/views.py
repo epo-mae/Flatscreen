@@ -122,6 +122,9 @@ def planner(request):
                 chore = Chore.objects.select_for_update().filter(pk=int(record_id), deleted_at=None).first() if record_id.isdigit() else None
                 if chore:
                     if action == 'complete_chore' and not chore.completed_at:
+                        if request.POST.get('expected_due_date') != chore.due_date.isoformat():
+                            messages.info(request, 'That chore was already updated. The latest schedule is shown below.')
+                            return redirect('planner')
                         completed_at = timezone.now()
                         ChoreCompletion.objects.create(chore=chore, completed_by=request.user, due_date=chore.due_date)
                         if chore.repeat == Chore.Repeat.ONCE:

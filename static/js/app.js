@@ -58,6 +58,7 @@
       renderPresence();
       tick();
     } else {
+      renderToday();
       $('purchased-count').textContent = bought.length;
       $('purchased-list').replaceChildren(...bought.map(row));
       $('purchased-section').hidden = !bought.length;
@@ -74,6 +75,22 @@
       $('presence-home').setAttribute('aria-pressed', String(current === 'HOME'));
       $('presence-out').setAttribute('aria-pressed', String(current === 'OUT'));
     }
+  }
+  function renderToday() {
+    const tonight = (state.dinners || []).find(plan => plan.date === state.local_date);
+    $('today-dinner').textContent = !tonight ? 'Dinner is undecided' : !tonight.happening ? 'No shared dinner tonight' : tonight.cook ? `${tonight.cook} is cooking` : 'Cook not decided';
+    $('today-dinner-detail').textContent = tonight?.happening ? [tonight.meal, tonight.time ? formatTime(tonight.time) : ''].filter(Boolean).join(' · ') : '';
+    const me = state.members.find(member => member.is_self);
+    const mine = (state.chores || []).filter(chore => !chore.assigned_to_id || chore.assigned_to_id === me?.id).slice(0, 2);
+    $('today-chores').textContent = mine.length ? `${mine.length} ${mine.length === 1 ? 'responsibility' : 'responsibilities'}` : 'Nothing assigned today';
+    $('today-chores-detail').textContent = mine.map(chore => `${chore.title} · ${chore.due_label}`).join(' / ');
+    const event = state.events?.[0];
+    $('today-event').textContent = event?.title || 'Nothing coming up';
+    $('today-event-detail').textContent = event ? `${event.countdown}${event.time ? ` · ${formatTime(event.time)}` : ''}` : '';
+    const notice = state.notices?.[0];
+    $('today-notice').textContent = notice?.title || 'No active notices';
+    $('today-notice-detail').textContent = notice?.message || '';
+    $('today-notice-card').classList.toggle('important', notice?.importance === 'important');
   }
   function renderDinner() {
     const box = $('dinner-content');

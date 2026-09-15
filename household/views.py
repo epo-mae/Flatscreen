@@ -29,6 +29,11 @@ def limited(request, purpose, maximum=10):
     return False
 
 
+def clear_attempts(request, purpose):
+    key = hashlib.sha256(f'{purpose}:{request.META.get("REMOTE_ADDR", "")}'.encode()).hexdigest()
+    AccessAttempt.objects.filter(key=key).delete()
+
+
 def establish_login(request, user):
     login(request, user)
     request.session['access_version'] = user.access_version
@@ -64,11 +69,16 @@ def sign_in(request):
     form = AuthenticationForm(request, data=request.POST or None)
     form.fields['username'].label = 'Username (not display name)'
     if request.method == 'POST':
-        if limited(request, 'login'):
+        login_purpose = f'login:{request.POST.get("username", "").strip().casefold()}'
+        key = hashlib.sha256(f'{login_purpose}:{request.META.get("REMOTE_ADDR", "")}'.encode()).hexdigest()
+        AccessAttempt.objects.filter(created_at__lt=timezone.now() - timedelta(minutes=15)).delete()
+        if AccessAttempt.objects.filter(key=key).count() >= 10:
             return render(request, 'login.html', {'form': form, 'rate_error': 'Too many attempts. Try again in 15 minutes.'}, status=429)
         if form.is_valid():
+            clear_attempts(request, login_purpose)
             establish_login(request, form.get_user())
             return redirect('home')
+        AccessAttempt.objects.create(key=key)
     return render(request, 'login.html', {'form': form})
 
 
@@ -118,6 +128,14 @@ def settings_page(request):
                     bump_revision()
                     messages.success(request, f'Weather location set to {house.weather_location}.')
                     return redirect('settings')
+            elif action == 'disable_weather':
+                house.weather_enabled = False
+                house.save(update_fields=['weather_enabled'])
+                WeatherSnapshot.objects.all().delete()
+                ActivityEntry.objects.create(actor=request.user, message='Disabled local weather')
+                bump_revision()
+                messages.success(request, 'Weather disabled and its cached reading removed.')
+                return redirect('settings')
             elif action == 'member':
                 member_form = MemberForm(request.POST)
                 if member_form.is_valid():

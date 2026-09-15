@@ -1,6 +1,7 @@
 import hashlib
 import json
 import uuid
+from contextlib import nullcontext
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 from django.db import transaction
@@ -28,7 +29,7 @@ def state(request):
     house = Household.current()
     weather = get_weather(house)
     weather_version = weather.get('updated_at', 'unavailable')
-    with transaction.atomic():
+    with nullcontext():
         etag = f'"{house.revision}-{weather_version}-{ "display" if display_mode else "member"}"'
         if request.headers.get('If-None-Match') == etag:
             response = JsonResponse({}, status=304)
@@ -98,7 +99,7 @@ def state(request):
                     'overdue': days < 0,
                 }
                 if not display_mode:
-                    row.update(id=chore.pk, notes=chore.notes)
+                    row.update(id=chore.pk, notes=chore.notes, assigned_to_id=chore.assigned_to_id)
                 chores.append(row)
             data = {
                 'revision': house.revision, 'household': house.name, 'timezone': house.timezone,

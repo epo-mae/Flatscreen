@@ -256,6 +256,24 @@ class FoundationTests(TestCase):
             c.post('/login/', {'username':'admin', 'password':'wrong'})
         self.assertEqual(c.post('/login/', {'username':'admin', 'password':'wrong'}).status_code, 429)
 
+    def test_successful_login_does_not_consume_failure_limit(self):
+        c = Client()
+        for _ in range(12):
+            response = c.post('/login/', {'username':'member', 'password':'Household-test-5932'})
+            self.assertEqual(response.status_code, 302)
+            c.post('/logout/')
+
+    def test_login_limits_are_separate_per_username(self):
+        c = Client()
+        for _ in range(10):
+            c.post('/login/', {'username':'unknown', 'password':'wrong'})
+        self.assertEqual(c.post('/login/', {'username':'member', 'password':'Household-test-5932'}).status_code, 302)
+
+    @patch('shopping.views.transaction.atomic')
+    def test_state_refresh_does_not_open_write_transaction(self, atomic):
+        self.assertEqual(self.client.get('/api/state/').status_code, 200)
+        atomic.assert_not_called()
+
     def test_invalid_timezone_rejected(self):
         self.sign_in(self.client, self.admin)
         response = self.client.post('/settings/', {'action':'household', 'name':'Our home', 'timezone':'Unknown/Place'})
@@ -381,7 +399,7 @@ class PlanningTests(TestCase):
     def test_completing_one_time_chore_records_history_and_allows_reopen(self):
         chore = Chore.objects.create(title='Clean fridge', assigned_to=self.member, due_date=self.today,
             creator=self.member)
-        self.client.post('/plan/', {'action':'complete_chore', 'record_id':chore.pk})
+        self.client.post('/plan/', {'action':'complete_chore', 'record_id':chore.pk, 'expected_due_date':chore.due_date.isoformat()})
         chore.refresh_from_db()
         self.assertIsNotNone(chore.completed_at)
         self.assertEqual(chore.completed_by, self.member)
@@ -394,7 +412,7 @@ class PlanningTests(TestCase):
     def test_completing_repeating_chore_advances_due_date(self):
         chore = Chore.objects.create(title='Bins', assigned_to=self.member,
             due_date=self.today-timedelta(days=15), repeat='weekly', creator=self.member)
-        self.client.post('/plan/', {'action':'complete_chore', 'record_id':chore.pk})
+        self.client.post('/plan/', {'action':'complete_chore', 'record_id':chore.pk, 'expected_due_date':chore.due_date.isoformat()})
         chore.refresh_from_db()
         self.assertGreater(chore.due_date, self.today)
         self.assertIsNone(chore.completed_at)
@@ -403,9 +421,18 @@ class PlanningTests(TestCase):
     def test_completing_repeating_chore_early_still_advances_once(self):
         due = self.today + timedelta(days=2)
         chore = Chore.objects.create(title='Water plants', due_date=due, repeat='weekly', creator=self.member)
-        self.client.post('/plan/', {'action':'complete_chore', 'record_id':chore.pk})
+        self.client.post('/plan/', {'action':'complete_chore', 'record_id':chore.pk, 'expected_due_date':chore.due_date.isoformat()})
         chore.refresh_from_db()
         self.assertEqual(chore.due_date, due + timedelta(days=7))
+
+    def test_stale_repeat_completion_does_not_advance_twice(self):
+        chore = Chore.objects.create(title='Bins', due_date=self.today, repeat='weekly', creator=self.member)
+        payload = {'action':'complete_chore', 'record_id':chore.pk, 'expected_due_date':self.today.isoformat()}
+        self.client.post('/plan/', payload)
+        self.client.post('/plan/', payload)
+        chore.refresh_from_db()
+        self.assertEqual(chore.due_date, self.today + timedelta(days=7))
+        self.assertEqual(ChoreCompletion.objects.count(), 1)
 
     def test_chore_can_be_edited_and_soft_removed(self):
         chore = Chore.objects.create(title='Vacuum', due_date=self.today, creator=self.member)
