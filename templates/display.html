@@ -1,0 +1,19 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}At home · Flatscreen{% endblock %}
+{% block head %}<script src="{% static 'js/app.js' %}" defer></script>{% endblock %}
+{% block body_class %}display-body{% endblock %}
+{% block body %}<main class="display-page" id="shopping-app" data-mode="{{ display_mode|default:'display' }}">
+<header class="display-header"><span class="brand"><span class="brand-mark">f.</span> <span id="household-name">At home</span></span><div class="display-header-meta"><span id="display-date" class="eyebrow">TODAY AT HOME</span><span class="eyebrow">OUR SHARED EVERYDAY</span></div></header>
+<div class="display-layout">
+  <section class="display-clock"><div id="display-time" class="clock">—:—</div><p id="display-greeting" class="display-kicker">Good evening.</p><h1>Here’s what’s<br>happening at home<span class="accent">.</span></h1><section id="display-weather" class="display-weather" aria-label="Today’s weather"><p class="weather-unavailable">Loading today’s weather…</p></section><div id="display-notice" class="display-notice" hidden></div></section>
+  <div class="display-board">
+    <section class="display-dinner"><div class="display-section-heading"><div><p class="eyebrow">TONIGHT</p><h2>Dinner</h2></div><span id="dinner-time" class="display-dinner-time"></span></div><div id="dinner-content" class="display-dinner-content"><p class="empty">Dinner hasn’t been planned yet.</p></div></section>
+    <div class="display-details-grid">
+      <section class="display-events"><div class="display-section-heading"><div><p class="eyebrow">THE NEXT FEW DAYS</p><h2>Coming up</h2></div></div><div id="display-events-list" class="display-events-list"><p class="empty">Nothing coming up.</p></div></section>
+      <section class="display-shopping"><div class="display-section-heading"><div><p class="eyebrow">THE SHARED LIST</p><h2>To pick up</h2></div><span id="remaining-count" class="count">—</span></div><div id="shopping-list"><p class="empty">Connecting to your household…</p></div><p id="display-overflow" class="display-overflow"></p></section>
+    </div>
+    <div class="display-bottom-grid"><section class="display-chores" aria-labelledby="display-chores-heading"><div class="display-section-heading"><div><p class="eyebrow">RESPONSIBILITIES</p><h2 id="display-chores-heading">To take care of</h2></div></div><div id="display-chores-list" class="display-chores-list"><p class="empty">Loading responsibilities…</p></div></section><section class="display-presence" aria-labelledby="display-presence-heading"><div class="display-section-heading"><div><p class="eyebrow">HOUSEHOLD</p><h2 id="display-presence-heading">Who’s home</h2></div></div><div id="display-presence-list" class="display-presence-list"><p class="empty">Waiting for household presence…</p></div></section></div>
+  </div>
+</div>
+<footer class="display-footer"><span>FLATSCREEN / HOUSEHOLD EDITION</span><p id="display-freshness">Live household information</p><div class="connection"><span class="status-dot"></span><span id="connection-status" role="status">Connecting…</span></div></footer>
+</main>{% endblock %}

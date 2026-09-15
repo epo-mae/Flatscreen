@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Make yourself at home · Flatscreen{% endblock %}
+{% block content %}
+<div class="section-heading"><p class="eyebrow">FIRST THINGS FIRST</p><h1>Make yourself<br>at home.</h1><p class="intro">Name your household and create your administrator account.</p></div>
+<form method="post" class="setup-form stack">{% csrf_token %}
+<section><h2>Your household</h2>{{ house_form.as_p }}</section>
+<section><h2>Your account</h2>{{ member_form.non_field_errors }}
+{% for field in member_form %}{% if field.name != 'role' %}<p>{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<span class="helptext">{{ field.help_text|safe }}</span>{% endif %}</p>{% endif %}{% endfor %}<input type="hidden" name="role" value="admin"></section>
+<button type="submit">Create household →</button><p class="small muted">This one-time setup is available only on this computer. Your account password is stored as a secure hash.</p>
+</form>
+{% endblock %}
+

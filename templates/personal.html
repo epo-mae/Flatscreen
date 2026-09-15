@@ -1,0 +1,27 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Shopping · Flatscreen{% endblock %}
+{% block head %}<script src="{% static 'js/app.js' %}" defer></script>{% endblock %}
+{% block content %}
+<div id="shopping-app" data-mode="personal" data-member="{{ request.user.pk }}">
+<div class="page-heading"><div><p class="eyebrow" id="household-name">{{ household.name }}</p><h1>The shopping list<span class="accent">.</span></h1><p class="intro">For the things we share.</p></div><div class="connection"><span class="status-dot"></span><span id="connection-status" role="status">Connecting…</span></div></div>
+<section class="presence-quick" aria-labelledby="presence-heading">
+  <div><p class="eyebrow">YOUR PRESENCE</p><h2 id="presence-heading">Are you home?</h2><p id="presence-copy" class="muted">Tell the household where you are.</p></div>
+  <div class="presence-actions" role="group" aria-label="Set your presence"><button type="button" id="presence-home" class="presence-action">I’m home</button><button type="button" id="presence-out" class="presence-action secondary">I’m out</button></div>
+</section>
+<div class="shopping-layout"><section class="list-section" aria-label="Shared shopping list">
+<div class="list-heading"><h2>To pick up <span id="remaining-count" class="count">—</span></h2><span class="eyebrow">ONE LIST. EVERYONE.</span></div>
+<div id="shopping-list"><p class="empty">Fetching your household list…</p></div>
+<details class="purchased-section" id="purchased-section"><summary>Purchased <span id="purchased-count">0</span></summary><div id="purchased-list"></div></details>
+<div class="list-tools"><button type="button" id="clear-purchased" class="text-button">Clear purchased</button><button type="button" id="clear-all" class="text-button danger">Clear entire list</button></div>
+</section>
+<aside class="add-panel"><p class="eyebrow">RUNNING LOW?</p><h2>Add it to<br>the list.</h2>
+<form id="add-form" class="stack">{% csrf_token %}<label for="item-name">What do we need?</label><input id="item-name" name="name" placeholder="Milk, olive oil, coffee…" maxlength="100" required autocomplete="off">
+<div class="form-columns"><div><label for="quantity">Quantity</label><input id="quantity" name="quantity" type="number" value="1" min="1" max="999" required></div><div><label for="note">Note <span class="muted">(optional)</span></label><input id="note" name="note" placeholder="e.g. 2-litre bottles" maxlength="240"></div></div>
+<button type="submit">Add to shopping <span aria-hidden="true">+</span></button></form>
+<p class="small muted">Shared with your household. Changes appear automatically.</p>
+<div class="household-people"><span class="eyebrow">IN THIS TOGETHER</span><div id="member-list"></div></div></aside></div>
+<div id="feedback" class="feedback" role="status" hidden></div>
+<dialog id="edit-dialog"><form id="edit-form" class="stack"><p class="eyebrow">THE DETAILS</p><h2>Edit shopping item</h2><label for="edit-name">Item name</label><input id="edit-name" name="name" maxlength="100" required><label for="edit-note">Note</label><input id="edit-note" name="note" maxlength="240"><div class="dialog-actions"><button type="button" class="secondary" id="cancel-edit">Cancel</button><button type="submit">Save changes</button></div><p id="edit-error" role="alert"></p></form></dialog>
+<dialog id="confirm-dialog"><p class="eyebrow">A QUICK CHECK</p><h2 id="confirm-title">Are you sure?</h2><p id="confirm-description"></p><div class="dialog-actions"><button type="button" id="confirm-cancel" class="secondary">Cancel</button><button type="button" id="confirm-ok">Confirm</button></div></dialog>
+</div>
+{% endblock %}

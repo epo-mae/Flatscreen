@@ -1,0 +1,30 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f1e9">
+  <title>{% block title %}Flatscreen{% endblock %}</title>
+  <link rel="icon" href="{% static 'mark.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+{% block body %}
+<header class="site-header">
+  <a class="brand" href="/" aria-label="Flatscreen home"><span class="brand-mark">f.</span> flatscreen<span class="brand-dot">●</span></a>
+  {% if request.user.is_authenticated %}
+  <nav aria-label="Main navigation">
+    <a href="/" {% if request.path == '/' %}aria-current="page"{% endif %}>Shopping</a>
+    <a href="/plan/" {% if request.path == '/plan/' %}aria-current="page"{% endif %}>Plan</a>
+    {% if request.user.is_house_admin %}<a href="/settings/" {% if request.path == '/settings/' %}aria-current="page"{% endif %}>Settings</a>{% endif %}
+    <form action="/logout/" method="post">{% csrf_token %}<button class="text-button" type="submit">Sign out</button></form>
+  </nav>
+  {% endif %}
+</header>
+<main class="page">{% for message in messages %}<div class="notice {{ message.tags }}" role="status">{{ message }}</div>{% endfor %}{% block content %}{% endblock %}</main>
+<footer class="site-footer"><span>A little more together.</span><span>FLATSCREEN / HOUSEHOLD EDITION</span></footer>
+{% endblock %}
+{% block scripts %}{% endblock %}
+</body>
+</html>
