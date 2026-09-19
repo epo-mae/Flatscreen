@@ -6,12 +6,13 @@ The current foundation includes:
 
 - First-run household and administrator setup.
 - Persistent member sessions, administrator/member roles, account deactivation and access revocation.
-- A shared shopping list with quantities, notes, purchased state, duplicate handling and short undo support.
+- A personal profile where each member changes their own display name and password.
+- A shared shopping list with quantities, notes, purchased state, duplicate handling, CSV export and short undo support.
 - Automatic two-second updates with safe retry IDs and edit conflict detection.
 - A dedicated display layout with pairing, revocation, cached last-known state and reconnect behaviour.
 - Manual HOME/OUT presence backed by event history and shown on the household display.
 - A shared planning area for dinner, temporary notices and upcoming household events.
-- A shared chores board with ownership, due dates, completion history and repeating responsibilities.
+- A shared chores board with ownership, due dates, upcoming recurrence previews, completion history and repeating responsibilities.
 - A TV composition that prioritises tonight, important notices, event countdowns, shopping and presence.
 - Today’s local weather with high, low, feels-like temperature, UV guidance and automatic condition alerts.
 - Activity records, consistent SQLite backups and retention maintenance.

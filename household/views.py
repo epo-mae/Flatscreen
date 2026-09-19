@@ -5,9 +5,9 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from .forms import HouseholdForm, MemberForm, WeatherLocationForm
+from .forms import DisplayNameForm, HouseholdForm, MemberForm, WeatherLocationForm
 from .models import AccessAttempt, ActivityEntry, DisplayDevice, Household, Member, WeatherSnapshot, bump_revision
 
 
@@ -185,6 +185,35 @@ def settings_page(request):
 
 def current_display(request):
     return DisplayDevice.objects.filter(pk=request.session.get('display_id'), approved=True, revoked=False).first()
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def profile(request):
+    display_form = DisplayNameForm(instance=request.user)
+    password_form = PasswordChangeForm(request.user)
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        with transaction.atomic():
+            if action == 'display_name':
+                display_form = DisplayNameForm(request.POST, instance=request.user)
+                old_label = request.user.display_name
+                if display_form.is_valid():
+                    display_form.save()
+                    if request.user.display_name != old_label:
+                        ActivityEntry.objects.create(actor=request.user, message=f'Changed their display name to {request.user.label}')
+                        bump_revision()
+                    messages.success(request, 'Display name saved.')
+                    return redirect('profile')
+            elif action == 'password':
+                password_form = PasswordChangeForm(request.user, request.POST)
+                if password_form.is_valid():
+                    password_form.save()
+                    update_session_auth_hash(request, password_form.user)
+                    ActivityEntry.objects.create(actor=request.user, message='Changed their password')
+                    messages.success(request, 'Password changed. You are still signed in here.')
+                    return redirect('profile')
+    return render(request, 'profile.html', {'display_form': display_form, 'password_form': password_form})
 
 
 @ensure_csrf_cookie

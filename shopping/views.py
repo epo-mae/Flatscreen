@@ -1,12 +1,14 @@
+import csv
 import hashlib
 import json
 import uuid
 from contextlib import nullcontext
 from datetime import timedelta
 from zoneinfo import ZoneInfo
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 from household.models import ActivityEntry, Household, Member, bump_revision
@@ -109,6 +111,19 @@ def state(request):
             response = JsonResponse(data)
         response['ETag'] = etag
         return response
+
+
+@login_required
+@require_GET
+def export(request):
+    items = ShoppingItem.objects.filter(deleted_at=None, purchased=False).order_by('added_at', 'id')
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="shopping-list.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Quantity', 'Item', 'Note'])
+    for item in items:
+        writer.writerow([item.quantity, item.name, item.note])
+    return response
 
 
 def error(message, status=400, **extra):

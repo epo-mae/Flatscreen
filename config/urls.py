@@ -10,6 +10,7 @@ urlpatterns = [
     path('login/', views.sign_in, name='login'),
     path('logout/', views.sign_out, name='logout'),
     path('settings/', views.settings_page, name='settings'),
+    path('profile/', views.profile, name='profile'),
     path('plan/', planning.planner, name='planner'),
     path('display/', views.display, name='display'),
     path('display/preview/', views.display_preview, name='display_preview'),
@@ -18,6 +19,7 @@ urlpatterns = [
     path('display/sw.js', views.display_worker, name='display_worker'),
     path('api/state/', shopping.state, name='state'),
     path('api/shopping/', shopping.mutate, name='mutate'),
+    path('api/shopping/export/', shopping.export, name='export'),
     path('api/presence/', presence.mutate, name='presence_mutate'),
     path('health/', views.health, name='health'),
 ]

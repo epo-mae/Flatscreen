@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block title %}Your profile · Flatscreen{% endblock %}
+{% block content %}
+<div class="section-heading"><p class="eyebrow">ABOUT YOU</p><h1>Your profile<span class="accent">.</span></h1><p class="intro">Your name and password are yours. The household never chooses these for you.</p></div>
+<div class="settings-grid"><section class="settings-section"><h2>Display name</h2><p class="muted">Shown to the household on the shopping list, presence board and TV display.</p><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="action" value="display_name">{{ display_form.as_p }}<button type="submit">Save display name</button></form></section>
+<section class="settings-section"><h2>Password</h2><p class="muted">Use a passphrase of at least ten characters that no one in your household would guess.</p><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="action" value="password">{{ password_form.as_p }}<button type="submit">Change password</button></form></section></div>
+{% endblock %}

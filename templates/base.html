@@ -17,6 +17,7 @@
   <nav aria-label="Main navigation">
     <a href="/" {% if request.path == '/' %}aria-current="page"{% endif %}>Shopping</a>
     <a href="/plan/" {% if request.path == '/plan/' %}aria-current="page"{% endif %}>Plan</a>
+    <a href="/profile/" {% if request.path == '/profile/' %}aria-current="page"{% endif %}>Profile</a>
     {% if request.user.is_house_admin %}<a href="/settings/" {% if request.path == '/settings/' %}aria-current="page"{% endif %}>Settings</a>{% endif %}
     <form action="/logout/" method="post">{% csrf_token %}<button class="text-button" type="submit">Sign out</button></form>
   </nav>

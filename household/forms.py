@@ -35,3 +35,11 @@ class MemberForm(UserCreationForm):
     class Meta:
         model = Member
         fields = ['username', 'display_name', 'role', 'password1', 'password2']
+
+
+class DisplayNameForm(forms.ModelForm):
+    class Meta:
+        model = Member
+        fields = ['display_name']
+        labels = {'display_name': 'Display name'}
+        help_texts = {'display_name': 'Shown to the household instead of your username.'}

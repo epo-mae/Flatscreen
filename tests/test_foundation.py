@@ -11,6 +11,7 @@ from household.weather import _alerts, get_weather
 from shopping.models import ShoppingItem
 from presence.models import PresenceEvent
 from planning.models import CalendarEvent, Chore, ChoreCompletion, DinnerPlan, HouseNotice
+from planning.views import upcoming_occurrences
 
 
 class FoundationTests(TestCase):
@@ -281,6 +282,55 @@ class FoundationTests(TestCase):
         self.house.refresh_from_db()
         self.assertEqual(self.house.timezone, 'Pacific/Auckland')
 
+    def test_profile_requires_sign_in(self):
+        self.client.logout()
+        self.assertEqual(self.client.get('/profile/').status_code, 302)
+
+    def test_member_can_change_their_display_name(self):
+        self.assertContains(self.client.get('/profile/'), 'Display name')
+        response = self.client.post('/profile/', {'action':'display_name', 'display_name':'Samwise'})
+        self.assertEqual(response.status_code, 302)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.display_name, 'Samwise')
+        self.assertIn('Changed their display name', ActivityEntry.objects.get().message)
+        self.assertEqual(self.client.get('/api/state/').status_code, 200)
+
+    def test_member_can_change_their_password_and_stays_signed_in(self):
+        response = self.client.post('/profile/', {
+            'action':'password', 'old_password':'Household-test-5932',
+            'new_password1':'Fresh-home-8310', 'new_password2':'Fresh-home-8310',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.member.refresh_from_db()
+        self.assertTrue(self.member.check_password('Fresh-home-8310'))
+        self.assertEqual(self.client.get('/api/state/').status_code, 200)
+
+    def test_password_change_requires_current_password(self):
+        response = self.client.post('/profile/', {
+            'action':'password', 'old_password':'wrong-password',
+            'new_password1':'Fresh-home-8310', 'new_password2':'Fresh-home-8310',
+        })
+        self.assertContains(response, 'Your old password was entered incorrectly')
+        self.member.refresh_from_db()
+        self.assertTrue(self.member.check_password('Household-test-5932'))
+
+    def test_shopping_export_requires_sign_in(self):
+        self.client.logout()
+        self.assertEqual(self.client.get('/api/shopping/export/').status_code, 302)
+
+    def test_shopping_export_contains_active_items_only(self):
+        self.add(name='Milk')
+        second = self.add(name='Olive oil')
+        self.mutation({'action':'purchase', 'id':second.pk, 'version':1, 'purchased':True})
+        response = self.client.get('/api/shopping/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8')
+        self.assertIn('attachment; filename="shopping-list.csv"', response['Content-Disposition'])
+        body = response.content.decode()
+        self.assertIn('Quantity,Item,Note', body)
+        self.assertIn('1,Milk,', body)
+        self.assertNotIn('Olive oil', body)
+
 
 class SetupTests(TestCase):
     def test_local_setup_and_lockout(self):
@@ -480,3 +530,19 @@ class PlanningTests(TestCase):
         self.assertContains(page, 'id_notice-title')
         self.client.logout()
         self.assertEqual(self.client.get('/plan/').status_code, 302)
+
+    def test_upcoming_occurrences_for_repeating_chore(self):
+        chore = Chore(title='Bins', due_date=self.today, repeat='weekly', creator=self.member)
+        self.assertEqual(upcoming_occurrences(chore, self.today, count=3),
+            [self.today + timedelta(days=7), self.today + timedelta(days=14), self.today + timedelta(days=21)])
+
+    def test_upcoming_occurrences_is_empty_for_one_time_chore(self):
+        chore = Chore(title='Deep clean', due_date=self.today, repeat='once', creator=self.member)
+        self.assertEqual(upcoming_occurrences(chore, self.today), [])
+
+    def test_planner_shows_repeating_chore_schedule(self):
+        Chore.objects.create(title='Water plants', due_date=self.today + timedelta(days=2),
+            repeat='weekly', creator=self.member)
+        page = self.client.get('/plan/')
+        self.assertContains(page, 'chore-upcoming')
+        self.assertContains(page, 'Next:')

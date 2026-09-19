@@ -13,7 +13,7 @@
 <div class="list-heading"><h2>To pick up <span id="remaining-count" class="count">—</span></h2><span class="eyebrow">ONE LIST. EVERYONE.</span></div>
 <div id="shopping-list"><p class="empty">Fetching your household list…</p></div>
 <details class="purchased-section" id="purchased-section"><summary>Purchased <span id="purchased-count">0</span></summary><div id="purchased-list"></div></details>
-<div class="list-tools"><button type="button" id="clear-purchased" class="text-button">Clear purchased</button><button type="button" id="clear-all" class="text-button danger">Clear entire list</button></div>
+<div class="list-tools"><a class="text-button" href="/api/shopping/export/">Export list</a><span class="list-tools-group"><button type="button" id="clear-purchased" class="text-button">Clear purchased</button><button type="button" id="clear-all" class="text-button danger">Clear entire list</button></span></div>
 </section>
 <aside class="add-panel"><p class="eyebrow">RUNNING LOW?</p><h2>Add it to<br>the list.</h2>
 <form id="add-form" class="stack">{% csrf_token %}<label for="item-name">What do we need?</label><input id="item-name" name="name" placeholder="Milk, olive oil, coffee…" maxlength="100" required autocomplete="off">

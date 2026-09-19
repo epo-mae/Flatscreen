@@ -20,26 +20,42 @@ def local_today():
     return timezone.now().astimezone(ZoneInfo(house.timezone)).date()
 
 
+def _advance_once(chore, due):
+    if chore.repeat == Chore.Repeat.DAILY:
+        return due + timedelta(days=1)
+    if chore.repeat == Chore.Repeat.WEEKLY:
+        return due + timedelta(days=7)
+    if chore.repeat == Chore.Repeat.FORTNIGHTLY:
+        return due + timedelta(days=14)
+    if chore.repeat == Chore.Repeat.MONTHLY:
+        month = due.month + 1
+        year = due.year + (month > 12)
+        month = 1 if month > 12 else month
+        return due.replace(year=year, month=month, day=min(due.day, monthrange(year, month)[1]))
+    return due
+
+
 def next_due_date(chore, today):
     due = chore.due_date
-    anchor_day = due.day
     first_advance = True
     while first_advance or due <= today:
         first_advance = False
-        if chore.repeat == Chore.Repeat.DAILY:
-            due += timedelta(days=1)
-        elif chore.repeat == Chore.Repeat.WEEKLY:
-            due += timedelta(days=7)
-        elif chore.repeat == Chore.Repeat.FORTNIGHTLY:
-            due += timedelta(days=14)
-        elif chore.repeat == Chore.Repeat.MONTHLY:
-            month = due.month + 1
-            year = due.year + (month > 12)
-            month = 1 if month > 12 else month
-            due = due.replace(year=year, month=month, day=min(anchor_day, monthrange(year, month)[1]))
-        else:
-            return due
+        due = _advance_once(chore, due)
     return due
+
+
+def upcoming_occurrences(chore, today, count=4):
+    if chore.repeat == Chore.Repeat.ONCE:
+        return []
+    dates = []
+    due = chore.due_date
+    for _ in range(count):
+        if due <= today:
+            due = next_due_date(chore, today)
+        if due not in dates:
+            dates.append(due)
+        due = _advance_once(chore, due)
+    return dates
 
 
 @login_required
@@ -162,6 +178,9 @@ def planner(request):
                     messages.success(request, 'Removed from the household display.')
                 return redirect('planner')
 
+    active_chores = list(Chore.objects.filter(deleted_at=None, completed_at=None).select_related('assigned_to')[:20])
+    for chore in active_chores:
+        chore.upcoming = upcoming_occurrences(chore, today)
     return render(request, 'planner.html', {
         'today': today,
         'dinner_form': dinner_form,
@@ -170,7 +189,7 @@ def planner(request):
         'notice_form': notice_form,
         'chore_form': chore_form,
         'editing_chore': editing_chore,
-        'chores': Chore.objects.filter(deleted_at=None, completed_at=None).select_related('assigned_to')[:20],
+        'chores': active_chores,
         'completed_chores': Chore.objects.filter(deleted_at=None, completed_at__gte=timezone.now() - timedelta(days=7)).select_related('assigned_to', 'completed_by').order_by('-completed_at')[:8],
         'dinners': DinnerPlan.objects.filter(date__gte=today)[:7],
         'events': CalendarEvent.objects.filter(event_date__gte=today, deleted_at=None)[:12],
