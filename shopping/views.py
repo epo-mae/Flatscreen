@@ -68,7 +68,7 @@ def state(request):
                     'time': plan.serving_time.strftime('%H:%M') if plan.serving_time else None,
                 })
             events = []
-            for event in CalendarEvent.objects.filter(event_date__gte=local_date, deleted_at=None)[:3]:
+            for event in CalendarEvent.objects.filter(event_date__gte=local_date, deleted_at=None).select_related('creator')[:3]:
                 days = (event.event_date - local_date).days
                 countdown = 'TODAY' if days == 0 else 'TOMORROW' if days == 1 else f'IN {days} DAYS'
                 events.append({
@@ -77,6 +77,7 @@ def state(request):
                     'time': event.start_time.strftime('%H:%M') if event.start_time else None,
                     'category': event.get_category_display(),
                     'countdown': countdown,
+                    'creator': event.creator.label,
                 })
             active_notices = list(HouseNotice.objects.filter(deleted_at=None).filter(
                 Q(expires_at=None) | Q(expires_at__gt=now)

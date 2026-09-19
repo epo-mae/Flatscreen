@@ -3,10 +3,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f4f1e9">
+  <meta name="theme-color" content="{{ theme_color|default:'#f4f1e9' }}">
   <title>{% block title %}Flatscreen{% endblock %}</title>
   <link rel="icon" href="{% static 'mark.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% block appearance_stylesheet %}/appearance.css{% endblock %}">
   {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">

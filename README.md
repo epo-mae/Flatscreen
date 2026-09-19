@@ -15,6 +15,7 @@ The current foundation includes:
 - A shared chores board with ownership, due dates, upcoming recurrence previews, completion history and repeating responsibilities.
 - A TV composition that prioritises tonight, important notices, event countdowns, shopping and presence.
 - Today’s local weather with high, low, feels-like temperature, UV guidance and automatic condition alerts.
+- A household appearance with five presets (Classic, Minimal, Warm, Contrast, Modern), server-rendered previews, fine-tuning and reset actions, applied to both the personal and display interfaces.
 - Activity records, consistent SQLite backups and retention maintenance.
 
 ## Run it locally

@@ -15,7 +15,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from .forms import DisplayNameForm, HouseholdForm, MemberForm, WeatherLocationForm
+from .appearance import PRESETS, preset_values, values_to_css
+from .forms import AppearanceForm, DisplayNameForm, HouseholdForm, MemberForm, WeatherLocationForm
 from .models import AccessAttempt, ActivityEntry, DisplayDevice, Household, Member, WeatherSnapshot, bump_revision
 
 
@@ -103,6 +104,7 @@ def settings_page(request):
     house_form = HouseholdForm(instance=house)
     weather_form = WeatherLocationForm(initial={'location': house.weather_location})
     member_form = MemberForm()
+    appearance_form = AppearanceForm(initial=house.appearance_settings)
     if request.method == 'POST':
         action = request.POST.get('action')
         with transaction.atomic():
@@ -178,9 +180,78 @@ def settings_page(request):
                     device.save(update_fields=['revoked'])
                     ActivityEntry.objects.create(actor=request.user, message=f'Revoked display {device.name}')
                 return redirect('settings')
+            elif action == 'preset':
+                preset_key = request.POST.get('preset')
+                if preset_key in PRESETS:
+                    changed_preset = preset_key != house.appearance_preset
+                    house.appearance_preset = preset_key
+                    house.appearance_values = preset_values(preset_key)
+                    house.save(update_fields=['appearance_preset', 'appearance_values'])
+                    if changed_preset:
+                        ActivityEntry.objects.create(actor=request.user, message=f'Applied the {PRESETS[preset_key]["name"]} appearance')
+                    messages.success(request, f'The {PRESETS[preset_key]["name"]} appearance is now active.')
+                    return redirect('settings')
+            elif action == 'appearance':
+                appearance_form = AppearanceForm(request.POST)
+                if appearance_form.is_valid():
+                    house.appearance_values = appearance_form.cleaned_values()
+                    house.save(update_fields=['appearance_values'])
+                    ActivityEntry.objects.create(actor=request.user, message='Fine-tuned the household appearance')
+                    messages.success(request, 'Appearance details saved.')
+                    return redirect('settings')
+                messages.error(request, 'Check the highlighted appearance fields.')
+            elif action == 'reset_preset':
+                preset_key = house.appearance_preset
+                house.appearance_values = preset_values(preset_key)
+                house.save(update_fields=['appearance_values'])
+                messages.success(request, f'Restored the stock {PRESETS[preset_key]["name"]} values.')
+                return redirect('settings')
+            elif action == 'reset_classic':
+                house.appearance_preset = 'classic'
+                house.appearance_values = preset_values('classic')
+                house.save(update_fields=['appearance_preset', 'appearance_values'])
+                ActivityEntry.objects.create(actor=request.user, message='Reset the appearance to Classic')
+                messages.success(request, 'Restored the original Flatscreen look.')
+                return redirect('settings')
+    appearance_form = appearance_form or AppearanceForm(initial=house.appearance_settings)
+    preset_name = PRESETS[house.appearance_preset]['name']
+    appearance_state = {
+        'preset_key': house.appearance_preset,
+        'preset_name': preset_name,
+        'customised': house.appearance_is_customised,
+        'label': preset_name + (' — customised' if house.appearance_is_customised else ''),
+    }
+    preview_key = request.GET.get('preview')
+    appearance_context = {'appearance_presets': PRESETS, 'appearance_state': appearance_state,
+        'appearance_form': appearance_form}
+    if preview_key in PRESETS:
+        appearance_context['appearance_preview'] = {
+            'preset_key': preview_key,
+            'preset_name': PRESETS[preview_key]['name'],
+            'stylesheet': f'/appearance.css?preset={preview_key}',
+        }
+        appearance_context['appearance_form'] = AppearanceForm(initial=preset_values(preview_key))
     return render(request, 'settings.html', {'house_form': house_form, 'weather_form': weather_form, 'member_form': member_form,
         'members': Member.objects.order_by('date_joined'), 'devices': DisplayDevice.objects.filter(approved=True, revoked=False),
-        'activities': ActivityEntry.objects.select_related('actor').order_by('-created_at')[:15]})
+        'activities': ActivityEntry.objects.select_related('actor').order_by('-created_at')[:15], **appearance_context})
+
+
+@require_GET
+def appearance_css(request):
+    preset_key = request.GET.get('preset')
+    if preset_key in PRESETS:
+        values = preset_values(preset_key)
+    else:
+        house = Household.objects.filter(pk=1).first()
+        values = house.appearance_settings if house else preset_values('classic')
+    css = values_to_css(values)
+    etag = f'"{hashlib.md5(css.encode()).hexdigest()}"'
+    if request.headers.get('If-None-Match') == etag:
+        return HttpResponse(status=304)
+    response = HttpResponse(css, content_type='text/css')
+    response['ETag'] = etag
+    response['Cache-Control'] = 'public, max-age=300'
+    return response
 
 
 def current_display(request):

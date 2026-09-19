@@ -121,7 +121,10 @@
       const row = node('div', 'display-event-row');
       const timing = node('div', 'display-event-timing');
       timing.append(node('strong', '', event.countdown), node('span', '', event.time ? formatTime(event.time) : event.category));
-      row.append(timing, node('span', 'display-event-title', event.title));
+      const copy = node('div', 'display-event-copy');
+      copy.append(node('span', 'display-event-title', event.title));
+      if (event.creator) copy.append(node('small', 'display-event-creator', `Added by ${event.creator}`));
+      row.append(timing, copy);
       list.append(row);
     }
     if (!state.events?.length) list.append(node('p', 'empty', 'Nothing coming up.'));
