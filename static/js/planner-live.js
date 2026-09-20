@@ -16,7 +16,8 @@
       const state = await response.json();
       if (revision === null) revision = state.revision;
       else if (state.revision !== revision) {
-        if (dirty) banner.hidden = false;
+        const editorOpen = !document.querySelector('[data-dinner-app]')?.hidden;
+        if (dirty || editorOpen) banner.hidden = false;
         else location.reload();
       }
     } catch { /* The next check retries automatically. */ }

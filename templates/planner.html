@@ -1,9 +1,10 @@
 {% extends 'base.html' %}{% load static %}
 {% block title %}Household plan · Flatscreen{% endblock %}
-{% block head %}<script src="{% static 'js/planner-live.js' %}" defer></script>{% endblock %}
+{% block head %}<script src="{% static 'js/dinner.js' %}" defer></script><script src="{% static 'js/planner-live.js' %}" defer></script>{% endblock %}
 {% block content %}
 <div id="planner-update" class="notice planner-update" hidden>Someone updated the household plan. <button type="button" id="planner-reload" class="text-button">Show latest</button></div>
 <div class="section-heading planning-heading"><div><p class="eyebrow">WHAT’S HAPPENING</p><h1>The household plan<span class="accent">.</span></h1><p class="intro">Responsibilities, dinner, dates and the things everyone should know.</p></div><a class="preview-link" href="/display/preview/" target="_blank" rel="noopener">Preview the TV →</a></div>
+{{ dinner_data|json_script:'dinner-data' }}
 
 <section class="planning-section chores-section">
   <div class="chores-heading"><div><p class="eyebrow">SHARED RESPONSIBILITIES</p><h2>Chores</h2></div><p class="muted">Clear ownership, visible deadlines, less mental load.</p></div>
@@ -18,9 +19,47 @@
 
 <div class="planning-grid">
   <section class="planning-section dinner-planning">
-    <p class="eyebrow">TONIGHT &amp; BEYOND</p><h2>Dinner</h2>
-    <form method="post" class="stack planning-form">{% csrf_token %}<input type="hidden" name="action" value="dinner">{{ dinner_form.as_p }}<button type="submit">Save dinner plan <span>→</span></button></form>
-    <div class="planning-list">{% for dinner in dinners %}<article><time>{{ dinner.date|date:'D j M' }}</time><div><strong>{% if not dinner.is_happening %}Dinner cancelled{% elif dinner.cook %}{{ dinner.cook.label }}{% else %}Cook not decided{% endif %}</strong><span>{% if dinner.is_happening %}{{ dinner.meal|default:'Meal not decided' }}{% if dinner.serving_time %} · {{ dinner.serving_time|time:'g:i A' }}{% endif %}{% else %}No shared dinner planned{% endif %}</span></div></article>{% empty %}<p class="empty-state">No dinners planned yet.</p>{% endfor %}</div>
+    <div class="dinner-heading"><div><p class="eyebrow">TONIGHT &amp; BEYOND</p><h2>Dinner</h2></div><p class="muted">Saved dinners are reusable templates. Plan an evening, then send its ingredients to the shared shopping list.</p></div>
+    <form method="post" class="stack planning-form" data-js-fallback>{% csrf_token %}<input type="hidden" name="action" value="dinner">{{ dinner_form.as_p }}<button type="submit">Save dinner plan <span>→</span></button></form>
+    <div class="dinner-app" data-dinner-app hidden>
+      <button type="button" class="dinner-launch" data-dinner-launch>Plan a dinner <span>+</span></button>
+      <div class="dinner-picker" data-dinner-picker hidden>
+        <div><p class="eyebrow">CHOOSE YOUR EVENING</p><h3>What are we eating?</h3></div>
+        <datalist id="dinner-suggestions">{% for dinner in saved_dinners %}<option value="{{ dinner.name }}"></option>{% endfor %}</datalist>
+        <input type="search" class="dinner-search" data-dinner-search placeholder="Search saved dinners…" list="dinner-suggestions" autocomplete="off" maxlength="120">
+        <div class="dinner-picker-groups">
+          <div class="dinner-picker-group" data-recent hidden><span class="eyebrow">RECENT</span><div data-recent-list></div></div>
+          <div class="dinner-picker-group" data-frequent hidden><span class="eyebrow">MOST USED</span><div data-frequent-list></div></div>
+          <div class="dinner-picker-group" data-saved hidden><span class="eyebrow">SAVED DINNERS</span><div data-saved-list></div></div>
+        </div>
+        <button type="button" class="text-button dinner-create" data-dinner-create>Create a brand-new dinner</button>
+      </div>
+      <div class="dinner-editor" data-dinner-editor hidden>
+        <div class="dinner-editor-head"><div><p class="eyebrow" data-editor-eyebrow>NEW DINNER</p><h3 data-editor-title>What are we eating?</h3></div><button type="button" class="text-button" data-editor-cancel>Cancel</button></div>
+        <input type="text" class="dinner-name" data-editor-name placeholder="Dinner name" maxlength="120" list="dinner-suggestions" autocomplete="off">
+        <div class="editor-cook"><label for="dinner-cook">Cooking</label><select id="dinner-cook" data-editor-cook><option value="">Anyone</option>{% for member in dinner_data.members %}<option value="{{ member.id }}">{{ member.name }}</option>{% endfor %}</select></div>
+        <div class="editor-cook"><label for="dinner-date">For</label><input type="date" id="dinner-date" data-editor-date></div>
+        <datalist id="ingredient-suggestions">{% for suggestion in dinner_suggestions %}<option value="{{ suggestion.name }}"></option>{% endfor %}</datalist>
+        <div class="editor-ingredients" data-ingredients><span class="eyebrow">INGREDIENTS</span></div>
+        <button type="button" class="text-button ingredient-add" data-add-ingredient>+ Add ingredient</button>
+        <div class="dinner-actions">
+          <button type="button" class="secondary" data-save-plan>Save dinner plan</button>
+          <button type="button" data-add-shopping>Add selected to shopping</button>
+          <button type="button" class="text-button" data-update-saved hidden>Update saved dinner</button>
+        </div>
+        <p class="dinner-feedback" data-editor-feedback role="status" hidden></p>
+      </div>
+    </div>
+    <template id="ingredient-row-template">
+      <div class="ingredient-row">
+        <input type="checkbox" class="ingredient-buy" data-buy checked aria-label="Add these to the shopping list">
+        <input type="text" class="ingredient-name" data-name maxlength="100" list="ingredient-suggestions" placeholder="e.g. ripe tomatoes" autocomplete="off">
+        <input type="number" class="ingredient-qty" data-qty value="1" min="1" max="999" step="1" aria-label="Quantity">
+        <select class="ingredient-category" data-category aria-label="Category">{% for key, label in shopping_categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+        <button type="button" class="text-button danger ingredient-remove" data-remove aria-label="Remove ingredient">×</button>
+      </div>
+    </template>
+    <div class="planning-list dinner-list">{% for dinner in dinners %}<article class="dinner-row {% if not dinner.is_happening %}cancelled{% endif %}" data-plan-id="{{ dinner.pk }}" data-plan-date="{{ dinner.date|date:'Y-m-d' }}"><time>{{ dinner.date|date:'D j M' }}</time><div class="dinner-row-copy"><strong>{% if not dinner.is_happening %}Dinner cancelled{% elif dinner.cook %}{{ dinner.cook.label }}{% else %}Cook not decided{% endif %}</strong><span>{% if dinner.is_happening %}{{ dinner.meal|default:'Meal not decided' }}{% if dinner.serving_time %} · {{ dinner.serving_time|time:'g:i A' }}{% endif %}{% else %}No shared dinner planned{% endif %}</span>{% if dinner.ingredients.all %}<small class="dinner-ingredients">{% for ingredient in dinner.ingredients.all %}{% if not forloop.first %} · {% endif %}{{ ingredient.name }}{% endfor %}</small>{% endif %}</div><div class="row-actions"><button type="button" class="text-button dinner-edit" data-edit="{{ dinner.pk }}">Edit</button></div></article>{% empty %}<p class="empty-state">No dinners planned yet.</p>{% endfor %}</div>
   </section>
 
   <section class="planning-section">
