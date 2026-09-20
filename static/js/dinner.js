@@ -23,6 +23,7 @@
   const cancelEditorBtn = $('[data-editor-cancel]');
   const feedbackEl = $('[data-editor-feedback]');
   const template = document.getElementById('ingredient-row-template');
+  const CATEGORY_LABELS = {produce:'Produce', meat:'Meat', dairy:'Dairy', bakery:'Bakery', pantry:'Pantry', frozen:'Frozen', drinks:'Drinks', household:'Household', toiletries:'Toiletries', other:'Other'};
 
   const session = { savedId: null, planId: null, date: data.today };
 
@@ -43,7 +44,12 @@
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(12000),
     });
-    const result = await response.json();
+    let result;
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error(`The household server replied with ${response.status}. Reload the page and try again.`);
+    }
     if (!response.ok) throw new Error(result.error || 'Could not save.');
     return result;
   }
@@ -57,10 +63,18 @@
     launch.hidden = false;
     picker.hidden = true;
     editor.hidden = false;
-    updateSavedBtn.hidden = !session.savedId;
+    refreshUpdateButton();
     $('[data-editor-eyebrow]').textContent = session.savedId ? session.saved.name : 'NEW DINNER';
     $('[data-editor-title]').textContent = session.savedId ? session.saved.name : 'What are we eating?';
     nameInput.focus();
+  }
+  function refreshUpdateButton() {
+    if (!session.savedId || !session.saved) { updateSavedBtn.hidden = true; return; }
+    const rows = readRows().map(({ name, quantity, category }) => ({ name, quantity, category }));
+    const saved = (session.saved.ingredients || []).map(i => ({ name: i.name, quantity: i.quantity, category: i.category || 'other' }));
+    const sameIngredients = rows.length === saved.length && rows.every((row, index) =>
+      row.name === saved[index].name && row.quantity === saved[index].quantity && (row.category || 'other') === saved[index].category);
+    updateSavedBtn.hidden = nameInput.value.trim() === session.saved.name && sameIngredients;
   }
   function pickerButton(saved) {
     const button = document.createElement('button');
@@ -91,16 +105,39 @@
   }
   function newRow() {
     const row = template.content.firstElementChild.cloneNode(true);
-    row.querySelector('[data-remove]').addEventListener('click', () => row.remove());
+    row.querySelector('[data-remove]').addEventListener('click', () => { row.remove(); refreshUpdateButton(); });
+    const hint = row.querySelector('[data-category-hint]');
+    const select = row.querySelector('[data-category]');
+    hint.addEventListener('click', () => { select.hidden = false; hint.hidden = true; select.focus(); });
+    select.addEventListener('change', () => {
+      if (select.value) row.dataset.category = select.value; else delete row.dataset.category;
+      delete row.dataset.auto;
+      resetCategoryHint(row);
+      refreshUpdateButton();
+    });
+    select.addEventListener('blur', () => { if (!select.hidden) resetCategoryHint(row); });
     ingredientsBox.append(row);
     return row;
+  }
+  function resetCategoryHint(row) {
+    const hint = row.querySelector('[data-category-hint]');
+    const select = row.querySelector('[data-category]');
+    const value = row.dataset.category || '';
+    select.value = value;
+    if (value && value !== 'other') hint.textContent = CATEGORY_LABELS[value] || 'Other';
+    else if (value === 'other') hint.textContent = 'Other · Change';
+    else hint.textContent = 'Automatic';
+    hint.hidden = !(value || row.querySelector('[data-name]').value.trim());
+    select.hidden = true;
   }
   function fillRow(row, ingredient) {
     if (ingredient) {
       row.querySelector('[data-name]').value = ingredient.name;
       row.querySelector('[data-qty]').value = ingredient.quantity;
-      row.querySelector('[data-category]').value = ingredient.category || 'other';
+      row.dataset.category = ingredient.category || 'other';
+      row.dataset.auto = '1';
     }
+    resetCategoryHint(row);
     row.querySelector('[data-name]').focus();
   }
   function readRows() {
@@ -112,10 +149,14 @@
         buy: row.querySelector('[data-buy]').checked,
         name,
         quantity: Math.max(1, Math.min(999, Number(row.querySelector('[data-qty]').value) || 1)),
-        category: row.querySelector('[data-category]').value,
+        category: row.dataset.category || '',
+        auto: row.dataset.auto === '1',
       });
     }
     return rows;
+  }
+  function serializeRows(rows) {
+    return rows.map(({ name, quantity, category, auto }) => ({ name, quantity, category: auto || !category ? undefined : category }));
   }
   function setEditor(name, cookId, savedId, ingredients, date) {
     session.savedId = savedId;
@@ -160,16 +201,21 @@
       date: dateInput.value || data.today,
       name: nameInput.value.trim(),
       cook_id: cookSelect.value ? Number(cookSelect.value) : null,
-      ingredients: readRows()
-        .filter(row => !checkedOnly || row.buy)
-        .map(({ name, quantity, category }) => ({ name, quantity, category })),
+      ingredients: serializeRows(readRows().filter(row => !checkedOnly || row.buy)),
     };
   }
   launch.addEventListener('click', () => { search.value = ''; showPicker(); });
   search.addEventListener('input', renderPickerGroups);
   createBtn.addEventListener('click', () => setEditor('', null, null, [], data.today));
   cancelEditorBtn.addEventListener('click', () => { picker.hidden = true; editor.hidden = true; launch.hidden = false; });
-  addIngredientBtn.addEventListener('click', () => newRow());
+  nameInput.addEventListener('input', refreshUpdateButton);
+  ingredientsBox.addEventListener('input', event => {
+    const row = event.target.closest('.ingredient-row');
+    if (row) resetCategoryHint(row);
+    refreshUpdateButton();
+  });
+  ingredientsBox.addEventListener('change', refreshUpdateButton);
+  addIngredientBtn.addEventListener('click', () => { newRow(); refreshUpdateButton(); });
   saveBtn.addEventListener('click', async () => {
     if (!nameInput.value.trim()) { feedback('Give the dinner a name first.'); nameInput.focus(); return; }
     saveBtn.disabled = true;
@@ -197,7 +243,7 @@
       const shopping = await api({
         action: 'add_shopping',
         plan_id: planId,
-        ingredients: selected.map(({ name, quantity, category }) => ({ name, quantity, category })),
+        ingredients: serializeRows(selected),
       });
       feedback(`${shopping.count} ${shopping.count === 1 ? 'item' : 'items'} added to the shopping list.`);
       setTimeout(() => location.reload(), 500);
@@ -215,7 +261,7 @@
         action: 'update_saved',
         saved_dinner_id: session.savedId,
         name: nameInput.value.trim(),
-        ingredients: readRows().map(({ name, quantity, category }) => ({ name, quantity, category })),
+        ingredients: serializeRows(readRows()),
       });
       feedback('Saved dinner updated.');
       setTimeout(() => location.reload(), 500);

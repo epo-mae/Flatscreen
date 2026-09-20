@@ -35,12 +35,12 @@ def _clean_ingredients(raw):
             raise ValueError('Invalid ingredient.')
         name = ' '.join(str(entry.get('name', '')).split())
         quantity = entry.get('quantity', 1)
-        category = entry.get('category') or ItemCategory.OTHER
+        category = entry.get('category') or None
         if not name or len(name) > 100:
             raise ValueError('Each ingredient needs a name under 101 characters.')
         if type(quantity) is not int or not 1 <= quantity <= 999:
             raise ValueError('Each ingredient quantity must be from 1 to 999.')
-        if category not in ItemCategory.values:
+        if category and category not in ItemCategory.values:
             raise ValueError('Choose a known category.')
         cleaned.append({'name': name, 'quantity': quantity, 'category': category})
     return cleaned
@@ -137,7 +137,7 @@ def dinner_api(request):
                     saved = SavedDinner.objects.create(name=name, created_by=request.user)
                     for row in ingredients:
                         category = resolve_category(row['name'], row['category'])
-                        remember_item(row['name'], category)
+                        remember_item(row['name'], row['category'])
                         SavedDinnerIngredient.objects.create(dinner_id=saved.pk, name=row['name'],
                                                              normalized_name=normalize_name(row['name']),
                                                              quantity=row['quantity'], category=category)
@@ -148,7 +148,7 @@ def dinner_api(request):
                     saved.ingredients.all().delete()
                     for row in ingredients:
                         category = resolve_category(row['name'], row['category'])
-                        remember_item(row['name'], category)
+                        remember_item(row['name'], row['category'])
                         SavedDinnerIngredient.objects.create(dinner_id=saved.pk, name=row['name'],
                                                              normalized_name=normalize_name(row['name']),
                                                              quantity=row['quantity'], category=category)
@@ -161,7 +161,7 @@ def dinner_api(request):
                 plan.ingredients.all().delete()
                 for row in ingredients:
                     category = resolve_category(row['name'], row['category'])
-                    remember_item(row['name'], category)
+                    remember_item(row['name'], row['category'])
                     DinnerPlanIngredient.objects.create(plan_id=plan.pk, name=row['name'],
                                                         normalized_name=normalize_name(row['name']),
                                                         quantity=row['quantity'], category=category)
@@ -181,7 +181,7 @@ def dinner_api(request):
                     raise ValueError('That dinner plan no longer exists.')
                 rows = data.get('ingredients')
                 if rows is None:
-                    rows = [{'name': i.name, 'quantity': i.quantity, 'category': i.category} for i in plan.ingredients.all()]
+                    rows = [{'name': i.name, 'quantity': i.quantity} for i in plan.ingredients.all()]
                 rows = _clean_ingredients(rows)
                 added = []
                 for row in rows:
@@ -207,7 +207,7 @@ def dinner_api(request):
                 saved.ingredients.all().delete()
                 for row in ingredients:
                     category = resolve_category(row['name'], row['category'])
-                    remember_item(row['name'], category)
+                    remember_item(row['name'], row['category'])
                     SavedDinnerIngredient.objects.create(dinner_id=saved.pk, name=row['name'],
                                                          normalized_name=normalize_name(row['name']),
                                                          quantity=row['quantity'], category=category)

@@ -175,7 +175,7 @@ def mutate(request):
             category = data.get('category')
             if not name or len(name) > 100 or len(note) > 240 or type(quantity) is not int or not 1 <= quantity <= 999:
                 return error('Enter a name, a quantity from 1 to 999, and a note under 241 characters.')
-            if category is not None and category not in ItemCategory.values:
+            if category and category not in ItemCategory.values:
                 return error('Choose a known category.')
             dinner_id = data.get('dinner')
             if dinner_id is not None:
@@ -248,12 +248,12 @@ def mutate(request):
                 category = data.get('category')
                 if not name or len(name) > 100 or len(note) > 240:
                     return error('Enter a name under 101 characters and a note under 241 characters.')
-                if category is not None and category not in ItemCategory.values:
+                if category and category not in ItemCategory.values:
                     return error('Choose a known category.')
                 item.name, item.normalized_name, item.note = name, name.casefold(), note
-                if category:
+                if category and category != item.category:
                     item.category = category
-                remember_item(name, category)
+                    remember_item(name, category)
                 description = f'Edited {name}'
             elif action == 'delete':
                 item.deleted_at = timezone.now()

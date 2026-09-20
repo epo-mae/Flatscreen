@@ -172,13 +172,34 @@ class MealPlanningTests(TestCase):
         self.assertEqual(tonight['shopping_pending'], 0)
 
     def test_manual_shopping_remembers_category_for_future_ingredients(self):
-        response = self.shopping_mutation({'action': 'add', 'name': 'Milk', 'quantity': 1, 'category': 'dairy'})
+        response = self.shopping_mutation({'action': 'add', 'name': 'Milk', 'quantity': 1})
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(KnownItem.objects.get(normalized_name='milk').category, 'dairy')
-        self.meal(ingredients=[{'name': 'Milk', 'quantity': 1, 'category': 'other'}])
+        self.assertEqual(ShoppingItem.objects.get(name='Milk').category, 'dairy')
+        self.assertIsNone(KnownItem.objects.get(normalized_name='milk').category)
+        self.meal(ingredients=[{'name': 'Milk', 'quantity': 1}])
         ingredient = DinnerPlanIngredient.objects.get(name='Milk')
         self.assertEqual(ingredient.category, 'dairy')
         self.assertEqual(ShoppingItem.objects.get(name='Milk').category, 'dairy')
+
+    def test_keyword_categories_apply_without_an_explicit_pick(self):
+        self.meal(ingredients=[{'name': 'canned tomatoes', 'quantity': 1},
+                               {'name': 'Frozen peas', 'quantity': 1},
+                               {'name': 'Washing powder', 'quantity': 1}])
+        categories = {ingredient.name: ingredient.category for ingredient in DinnerPlanIngredient.objects.all()}
+        self.assertEqual(categories['canned tomatoes'], 'pantry')
+        self.assertEqual(categories['Frozen peas'], 'frozen')
+        self.assertEqual(categories['Washing powder'], 'household')
+        self.assertIsNone(KnownItem.objects.get(normalized_name='canned tomatoes').category)
+
+    def test_explicit_category_including_other_is_honored_and_remembered(self):
+        self.meal(ingredients=[{'name': 'Cheddar cheese', 'quantity': 1, 'category': 'other'}])
+        ingredient = DinnerPlanIngredient.objects.get(name='Cheddar cheese')
+        self.assertEqual(ingredient.category, 'other')
+        known = KnownItem.objects.get(normalized_name='cheddar cheese')
+        self.assertEqual(known.category, 'other')
+        added = self.shopping_mutation({'action': 'add', 'name': 'Cheddar cheese', 'quantity': 1})
+        self.assertEqual(added.status_code, 200, added.content)
+        self.assertEqual(added.json()['category'], 'other')
 
     def test_manual_add_duplicate_prompt_still_applies_outside_dinners(self):
         self.shopping_mutation({'action': 'add', 'name': 'Milk', 'quantity': 1})

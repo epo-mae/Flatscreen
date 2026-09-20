@@ -38,11 +38,13 @@ class KnownItem(models.Model):
     """The household's learned item memory: preferred spelling and category.
 
     Kept from manually added items and dinner ingredients, so autocomplete,
-    consistent naming and category grouping agree across the whole app.
+    consistent naming and category grouping agree across the whole app. A null
+    category means the household has not deliberately chosen one yet, so the
+    built-in keyword rules still apply to the name.
     """
     normalized_name = models.CharField(max_length=100, unique=True, db_index=True)
     canonical_name = models.CharField(max_length=100)
-    category = models.CharField(max_length=20, choices=ItemCategory.choices, default=ItemCategory.OTHER)
+    category = models.CharField(max_length=20, choices=ItemCategory.choices, null=True, blank=True, default=None)
     uses = models.PositiveIntegerField(default=1)
     spellings = models.JSONField(default=dict)
     last_used_at = models.DateTimeField(auto_now=True)

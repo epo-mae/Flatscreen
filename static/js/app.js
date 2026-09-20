@@ -252,8 +252,12 @@
       check.setAttribute('aria-pressed', String(item.purchased)); r.append(check);
     }
     const copy = node('div', 'item-copy'); copy.append(node('span', 'item-name', item.name));
-    if (view === 'category' && item.dinner) copy.append(node('span', 'item-meal', item.dinner));
-    if (!display) copy.append(node('span', 'item-note', item.note || `Added by ${item.added_by}`));
+    if (!display) {
+      const meta = view === 'meal'
+        ? (item.category && item.category !== 'other' ? CATEGORY_LABELS[item.category] : '')
+        : (item.dinner || '');
+      copy.append(node('span', 'item-note', [meta, item.note || `Added by ${item.added_by}`].filter(Boolean).join(' · ')));
+    }
     r.append(copy);
     if (display) r.append(node('span', 'display-quantity', `×${item.quantity}`));
     else {
@@ -394,7 +398,7 @@
     $('add-form').addEventListener('submit', async event => {
       event.preventDefault();
       const form = event.currentTarget;
-      const payload = {action:'add', name:form.elements.name.value, quantity:Number(form.elements.quantity.value), note:form.elements.note.value, category:form.elements.category.value};
+      const payload = {action:'add', name:form.elements.name.value, quantity:Number(form.elements.quantity.value), note:form.elements.note.value};
       if (await send(payload)) { form.reset(); $('item-name').focus(); }
     });
     $('edit-form').addEventListener('submit', async event => {

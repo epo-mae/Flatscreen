@@ -92,30 +92,40 @@ button.secondary-appearance{border-color:#aeb5a8;background:transparent;color:va
 @media(max-width:800px){.appearance-form-grid{grid-template-columns:1fr}.appearance-form p{flex-direction:column;align-items:flex-start}.appearance-form input:not([type="color"]){width:100%;text-align:left}}
 
 /* Dinner planning: saved templates feed the plan and the shared shopping list. */
+.icon-sprite{display:none}
+.icon{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.icon-label{display:inline-flex;align-items:center;justify-content:center;gap:10px}
+.icon-split{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .dinner-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:20px}.dinner-heading h2{margin:0}.dinner-heading p{margin-bottom:0}
 .dinner-planning .planning-list{margin-top:22px}
-.dinner-launch{width:100%;margin-bottom:22px;background:var(--wash);color:var(--ink);border-color:#aeb5a8}.dinner-launch:hover{background:var(--ink);color:var(--white)}
+.dinner-launch,.dinner-create{width:100%;background:var(--wash);color:var(--ink);border-color:#aeb5a8}.dinner-launch{margin-bottom:22px}.dinner-create{margin-top:14px}.dinner-launch:hover,.dinner-create:hover{background:var(--ink);color:var(--white)}
 .dinner-picker,.dinner-editor{background:var(--wash);padding:22px;box-shadow:var(--shadow,none);margin-bottom:22px}
 .dinner-picker h3,.dinner-editor-head h3{font-family:Georgia,'Times New Roman',serif;font-size:1.4rem;font-weight:400;margin:2px 0 14px}
 .dinner-search{margin-bottom:14px}
-.dinner-picker-groups{display:grid;gap:6px}
-.dinner-picker-group{margin:10px 0 0}.dinner-picker-group .eyebrow{color:var(--muted);display:block;margin-bottom:6px}
-.dinner-picker-item{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;text-align:left;background:var(--white);border:1px solid var(--line);border-radius:var(--radius,4px);padding:12px 14px;min-height:0;margin-bottom:8px}.dinner-picker-item strong{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:1rem}.dinner-picker-item span{font-size:.72rem;color:var(--muted)}.dinner-picker-item:hover{background:var(--ink);color:var(--white)}.dinner-picker-item:hover span{color:rgba(255,255,255,.8)}
-.dinner-create{margin-top:4px}
+.dinner-picker-groups{display:grid;gap:2px}
+.dinner-picker-group{margin:12px 0 0;border-top:1px solid var(--line);padding-top:10px}.dinner-picker-group .eyebrow{color:var(--muted);display:block;margin-bottom:4px}
+.dinner-picker-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 6px;min-height:0}.dinner-picker-item:last-child{border-bottom:0}.dinner-picker-item strong{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:1rem}.dinner-picker-item span{font-size:.72rem;color:var(--muted)}.dinner-picker-item:hover,.dinner-picker-item:focus-visible{background:var(--ink);color:var(--white)}.dinner-picker-item:hover span{color:rgba(255,255,255,.8)}
 .dinner-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .dinner-name{font-family:Georgia,'Times New Roman',serif;font-size:1.2rem;margin-bottom:14px}
 .editor-cook{display:flex;align-items:center;gap:10px;margin-bottom:16px}.editor-cook label{margin:0;font-size:.75rem;font-weight:600;white-space:nowrap}.editor-cook select,.editor-cook input{width:auto;flex:1;min-width:0}
-.editor-ingredients{display:grid;gap:10px;margin-bottom:10px}.editor-ingredients>.eyebrow{grid-column:1/-1;color:var(--muted);margin-bottom:2px}
-.ingredient-row{display:grid;grid-template-columns:auto minmax(0,1fr) 74px 148px auto;gap:8px;align-items:center}.ingredient-row input[type="checkbox"]{width:auto;min-height:0;height:22px;margin:0}.ingredient-row .ingredient-category{padding:10px;min-height:44px}.ingredient-remove{min-height:44px;padding:0 12px}
-.ingredient-add{margin-bottom:16px}
+.editor-ingredients{display:grid;gap:0;margin-bottom:12px}.editor-ingredients>.eyebrow{grid-column:1/-1;color:var(--muted);margin-bottom:6px}
+.ingredient-row{display:grid;grid-template-columns:auto minmax(0,1fr) 44px;grid-template-areas:"buy name remove" "buy meta remove";gap:4px 12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.ingredient-row:last-child{border-bottom:0}
+.ingredient-buy{grid-area:buy;display:inline-flex;align-items:center;gap:8px;margin:0;font-size:.75rem;font-weight:600;color:var(--muted);cursor:pointer}.ingredient-buy input[type="checkbox"]{width:18px;height:18px;min-height:0;margin:0;accent-color:var(--ink);cursor:pointer}
+.ingredient-name{grid-area:name;min-width:0}
+.ingredient-meta{grid-area:meta;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.ingredient-field{display:flex;align-items:center;gap:8px;margin:0;font-size:.72rem;font-weight:600;color:var(--muted)}.ingredient-field input{padding:10px 12px;min-height:44px;font-size:.85rem}.ingredient-field input[type="number"]{width:70px}
+.category-hint{background:transparent;border:0;border-bottom:1px dotted currentColor;border-radius:0;padding:0 0 2px;min-height:44px;min-width:0;font-size:.72rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);cursor:pointer}.category-hint:hover,.category-hint:focus-visible{color:var(--ink);border-bottom-style:solid}.category-hint[hidden]{display:none}
+.ingredient-category{padding:10px 12px;min-height:44px;min-width:0;font-size:.85rem;border:1px solid var(--line);border-radius:var(--radius,4px);background:var(--white)}.ingredient-category[hidden]{display:none}
+.ingredient-remove{grid-area:remove;justify-self:center;min-height:44px;min-width:44px;padding:0;background:transparent;color:var(--ink);border:0;display:inline-flex;align-items:center;justify-content:center}.ingredient-remove:hover{background:var(--wash);color:var(--danger)}
+.ingredient-add{margin-bottom:16px;color:var(--muted)}.ingredient-add:hover{color:var(--ink)}
 .dinner-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.dinner-actions button{flex:1;min-width:170px}
 .dinner-feedback{font-size:.82rem;margin:12px 0 0}.dinner-feedback.error{color:var(--danger)}
-.dinner-row .dinner-ingredients{font-size:.7rem;margin-top:4px}.dinner-row.cancelled{opacity:.65}
-@media(max-width:600px){.ingredient-row{grid-template-columns:auto minmax(0,1fr) auto}.ingredient-row .ingredient-qty{width:70px}.ingredient-row .ingredient-category{grid-column:2/-1}.dinner-actions button{min-width:140px}}
+.dinner-row .dinner-ingredients{font-size:.7rem;margin-top:4px;color:var(--muted)}.dinner-row.cancelled{opacity:.65}
+.dinner-edit{white-space:nowrap}
+@media(max-width:600px){.ingredient-row{grid-template-columns:minmax(0,1fr) 44px;grid-template-areas:"name remove" "meta meta" "buy buy";gap:6px 12px}.ingredient-buy{justify-self:start;min-height:40px}.ingredient-category{width:100%}.dinner-actions button{min-width:140px}}
 
 /* Meal and category grouping on the shared shopping list. */
 .list-heading-meta{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
-.view-toggle{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius,4px);overflow:hidden}.view-toggle button{padding:9px 14px;min-height:0;font-size:.75rem;background:transparent;color:var(--muted);border:0;border-right:1px solid var(--line);border-radius:0}.view-toggle button:last-child{border-right:0}.view-toggle button.active{background:var(--ink);color:var(--white)}
+.view-toggle{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius,4px);overflow:hidden;background:var(--white)}.view-toggle button{padding:0 16px;min-height:40px;min-width:0;font-size:.75rem;background:transparent;color:var(--muted);border:0;border-right:1px solid var(--line);border-radius:0}.view-toggle button:last-child{border-right:0}.view-toggle button:hover{background:var(--wash);color:var(--ink)}.view-toggle button.active{background:var(--ink);color:var(--white)}.view-toggle button.active:hover{background:#3b5543;color:var(--white)}
 .group-head{display:flex;align-items:baseline;gap:10px;border-top:2px solid var(--ink);padding-top:14px;margin-top:22px;font-size:.8rem}.group-head:first-child{margin-top:0}.group-head strong{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:1.05rem}.group-head span{font-size:.62rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}.group-head+.shopping-row{border-top:0}
-.item-meal{display:inline-block;font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--wash);border-radius:999px;padding:2px 8px;margin-bottom:5px}
 @media(max-width:800px){.list-heading-meta{align-items:flex-start}}}

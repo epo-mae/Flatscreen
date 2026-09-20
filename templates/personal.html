@@ -18,7 +18,6 @@
 <aside class="add-panel"><p class="eyebrow">RUNNING LOW?</p><h2>Add it to<br>the list.</h2>
 <form id="add-form" class="stack">{% csrf_token %}<label for="item-name">What do we need?</label><datalist id="item-suggestions"></datalist><input id="item-name" name="name" placeholder="Milk, olive oil, coffee…" maxlength="100" required autocomplete="off" list="item-suggestions">
 <div class="form-columns"><div><label for="quantity">Quantity</label><input id="quantity" name="quantity" type="number" value="1" min="1" max="999" required></div><div><label for="note">Note <span class="muted">(optional)</span></label><input id="note" name="note" placeholder="e.g. 2-litre bottles" maxlength="240"></div></div>
-<div class="form-columns"><div><label for="category">Category <span class="muted">(optional)</span></label><select id="category" name="category"><option value="">Automatic</option>{% for key, label in shopping_categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div></div>
 <button type="submit">Add to shopping <span aria-hidden="true">+</span></button></form>
 <p class="small muted">Shared with your household. Changes appear automatically.</p>
 <div class="household-people"><span class="eyebrow">IN THIS TOGETHER</span><div id="member-list"></div></div></aside></div>
