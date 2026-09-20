@@ -1,6 +1,7 @@
 {% extends 'base.html' %}{% load static %}
 {% block title %}At home · Flatscreen{% endblock %}
-{% block head %}<script src="{% static 'js/app.js' %}" defer></script>{% endblock %}
+{% block head %}<link rel="stylesheet" href="/appearance-display.css">
+  <script src="{% static 'js/app.js' %}" defer></script>{% endblock %}
 {% block body_class %}display-body{% endblock %}
 {% block body %}<main class="display-page" id="shopping-app" data-mode="{{ display_mode|default:'display' }}">
 <header class="display-header"><span class="brand"><span class="brand-mark">f.</span> <span id="household-name">At home</span></span><div class="display-header-meta"><span id="display-date" class="eyebrow">TODAY AT HOME</span><span class="eyebrow">OUR SHARED EVERYDAY</span></div></header>

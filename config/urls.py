@@ -11,6 +11,7 @@ urlpatterns = [
     path('logout/', views.sign_out, name='logout'),
     path('settings/', views.settings_page, name='settings'),
     path('appearance.css', views.appearance_css, name='appearance_css'),
+    path('appearance-display.css', views.appearance_display_css, name='appearance_display_css'),
     path('profile/', views.profile, name='profile'),
     path('plan/', planning.planner, name='planner'),
     path('display/', views.display, name='display'),

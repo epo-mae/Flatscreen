@@ -1,6 +1,6 @@
-const CACHE = 'flatscreen-display-shell-v2';
+const CACHE = 'flatscreen-display-shell-v3';
 const SHELL = '/display/offline/';
-const ASSETS = [SHELL, '/appearance.css', '/static/css/app.css', '/static/js/app.js', '/static/mark.svg'];
+const ASSETS = [SHELL, '/appearance.css', '/appearance-display.css', '/static/css/app.css', '/static/css/design.css', '/static/js/app.js', '/static/mark.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });

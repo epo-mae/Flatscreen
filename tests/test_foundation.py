@@ -6,7 +6,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 from django.test import TestCase, Client, override_settings
 from django.utils import timezone
-from household.appearance import PRESETS, classic_defaults, preset_values
+from household.appearance import PRESETS, appearance_attrs, display_attrs, overrides_from_legacy, resolve_config
 from household.models import Household, Member, DisplayDevice, ActivityEntry, WeatherSnapshot
 from household.weather import _alerts, get_weather
 from shopping.models import ShoppingItem
@@ -343,29 +343,28 @@ class AppearanceTests(TestCase):
         session.save()
 
     def fine_tune_payload(self, **overrides):
-        payload = {'action': 'appearance', 'background': '#f4f1e9', 'surface': '#fffcf5',
-            'wash': '#e8ebdf', 'accent': '#bd633b', 'text': '#283e31', 'muted': '#6b7268',
-            'border': '#d3d6c9', 'radius': '4', 'font_scale': '100', 'shadow': '0', 'spacing': '100'}
+        payload = {'action': 'appearance'}
         payload.update(overrides)
         return payload
 
     def test_default_household_is_classic_and_unchanged(self):
-        self.assertEqual(self.house.appearance_preset, 'classic')
-        self.assertEqual(self.house.appearance_values, classic_defaults())
+        self.assertEqual(self.house.base_preset, 'classic')
+        self.assertEqual(self.house.appearance_overrides, {})
         self.assertFalse(self.house.appearance_is_customised)
         body = self.client.get('/appearance.css').content.decode()
         self.assertIn('--paper:#f4f1e9', body)
         self.assertIn('--accent:#bd633b', body)
         self.assertIn('--radius:4px', body)
+        self.assertIn('--font-body:Arial, Helvetica, sans-serif', body)
 
-    def test_each_preset_populates_the_stored_values(self):
-        for key, preset in PRESETS.items():
+    def test_each_preset_resolves_unchanged_and_keeps_base(self):
+        for key in PRESETS:
             response = self.client.post('/settings/', {'action': 'preset', 'preset': key})
             self.assertEqual(response.status_code, 302)
             self.house.refresh_from_db()
-            self.assertEqual(self.house.appearance_preset, key)
-            self.assertEqual(self.house.appearance_values, preset_values(key))
+            self.assertEqual(self.house.base_preset, key)
             self.assertFalse(self.house.appearance_is_customised)
+            self.assertEqual(self.house.appearance_resolved, resolve_config(key))
 
     def test_settings_page_shows_presets_and_current_state(self):
         page = self.client.get('/settings/')
@@ -376,65 +375,96 @@ class AppearanceTests(TestCase):
         self.assertContains(page, 'preset-card--classic is-current')
 
     def test_previewing_a_preset_does_not_change_stored_values(self):
-        page = self.client.get('/settings/?preview=warm')
-        self.assertContains(page, 'appearance.css?preset=warm')
-        self.assertContains(page, 'Previewing the <strong>Warm</strong> appearance', html=False)
+        page = self.client.get('/settings/?preview=soft')
+        self.assertContains(page, 'appearance.css?preset=soft')
+        self.assertContains(page, 'Previewing the <strong>Soft</strong> design system', html=False)
         self.house.refresh_from_db()
-        self.assertEqual(self.house.appearance_preset, 'classic')
-        self.assertEqual(self.house.appearance_values, classic_defaults())
+        self.assertEqual(self.house.base_preset, 'classic')
+        self.assertEqual(self.house.appearance_overrides, {})
+
+    def test_preview_applies_the_presets_attributes_to_the_page(self):
+        page = self.client.get('/settings/?preview=minimal')
+        self.assertContains(page, 'data-nav="sidebar"')
+        self.assertContains(page, 'data-dashboard="sections"')
 
     def test_applying_a_previewed_preset_confirms_and_updates(self):
-        self.client.post('/settings/', {'action': 'preset', 'preset': 'warm'})
+        self.client.post('/settings/', {'action': 'preset', 'preset': 'soft'})
         self.house.refresh_from_db()
-        self.assertEqual(self.house.appearance_preset, 'warm')
-        self.assertEqual(self.house.appearance_values, preset_values('warm'))
-        self.assertTrue(ActivityEntry.objects.filter(message='Applied the Warm appearance').exists())
+        self.assertEqual(self.house.base_preset, 'soft')
+        self.assertEqual(self.house.appearance_resolved, resolve_config('soft'))
+        self.assertTrue(ActivityEntry.objects.filter(message='Applied the Soft appearance').exists())
+
+    def test_applying_a_preset_keeps_unrelated_overrides(self):
+        self.client.post('/settings/', self.fine_tune_payload(colour_accent='#b3456f'))
+        self.client.post('/settings/', {'action': 'preset', 'preset': 'minimal'})
+        self.house.refresh_from_db()
+        self.assertEqual(self.house.base_preset, 'minimal')
+        self.assertEqual(self.house.appearance_overrides, {'colour.accent': '#b3456f'})
+        self.assertTrue(self.house.appearance_is_customised)
 
     def test_appearance_css_obeys_preset_override_and_etag(self):
-        first = self.client.get('/appearance.css?preset=warm')
+        first = self.client.get('/appearance.css?preset=soft')
         self.assertEqual(first['Content-Type'], 'text/css')
         self.assertEqual(first['Cache-Control'], 'public, max-age=300')
-        self.assertIn('--paper:#f6ecdd', first.content.decode())
+        self.assertIn('--paper:#fdf2e7', first.content.decode())
+        self.assertIn('--radius-panel:20px', first.content.decode())
         etag = first['ETag']
-        self.assertEqual(self.client.get('/appearance.css?preset=warm', HTTP_IF_NONE_MATCH=etag).status_code, 304)
+        self.assertEqual(self.client.get('/appearance.css?preset=soft', HTTP_IF_NONE_MATCH=etag).status_code, 304)
+
+    def test_display_css_is_generated_and_cached_like_the_main_sheet(self):
+        first = self.client.get('/appearance-display.css?preset=dense')
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first['Cache-Control'], 'public, max-age=300')
+        self.assertIn('--display-scale', first.content.decode())
+        self.assertEqual(self.client.get('/appearance-display.css').status_code, 200)
+        etag = first['ETag']
+        self.assertEqual(self.client.get('/appearance-display.css?preset=dense', HTTP_IF_NONE_MATCH=etag).status_code, 304)
 
     def test_fine_tuning_marks_the_preset_customised(self):
-        self.client.post('/settings/', self.fine_tune_payload(accent='#b3456f'))
+        self.client.post('/settings/', self.fine_tune_payload(colour_accent='#b3456f'))
         self.house.refresh_from_db()
         self.assertTrue(self.house.appearance_is_customised)
-        self.assertEqual(self.house.appearance_preset, 'classic')
+        self.assertEqual(self.house.base_preset, 'classic')
+        self.assertEqual(self.house.appearance_overrides, {'colour.accent': '#b3456f'})
         self.assertContains(self.client.get('/settings/'), 'Classic — customised')
 
-    def test_reset_preset_restores_stock_values_of_current_preset(self):
-        self.client.post('/settings/', self.fine_tune_payload(accent='#b3456f'))
+    def test_saving_stock_values_is_pruned_to_no_overrides(self):
+        self.client.post('/settings/', self.fine_tune_payload(colour_accent='#bd633b'))
+        self.house.refresh_from_db()
+        self.assertEqual(self.house.appearance_overrides, {})
+        self.assertFalse(self.house.appearance_is_customised)
+
+    def test_reset_preset_clears_adjustments_but_keeps_the_preset(self):
+        self.client.post('/settings/', self.fine_tune_payload(colour_accent='#b3456f'))
         self.client.post('/settings/', {'action': 'reset_preset'})
         self.house.refresh_from_db()
-        self.assertEqual(self.house.appearance_values, preset_values('classic'))
+        self.assertEqual(self.house.base_preset, 'classic')
+        self.assertEqual(self.house.appearance_overrides, {})
         self.assertFalse(self.house.appearance_is_customised)
 
     def test_reset_classic_restores_the_flatscreen_default(self):
-        self.client.post('/settings/', {'action': 'preset', 'preset': 'modern'})
-        self.client.post('/settings/', self.fine_tune_payload(accent='#b3456f'))
+        self.client.post('/settings/', {'action': 'preset', 'preset': 'editorial'})
+        self.client.post('/settings/', self.fine_tune_payload(colour_accent='#b3456f'))
         self.client.post('/settings/', {'action': 'reset_classic'})
         self.house.refresh_from_db()
-        self.assertEqual(self.house.appearance_preset, 'classic')
-        self.assertEqual(self.house.appearance_values, classic_defaults())
+        self.assertEqual(self.house.base_preset, 'classic')
+        self.assertEqual(self.house.appearance_overrides, {})
         self.assertFalse(self.house.appearance_is_customised)
 
     def test_invalid_fine_tune_is_rejected_without_writing(self):
-        response = self.client.post('/settings/', self.fine_tune_payload(accent='red'))
+        response = self.client.post('/settings/', self.fine_tune_payload(colour_accent='red'))
         self.assertContains(response, 'Some appearance values were not accepted')
         self.house.refresh_from_db()
-        self.assertEqual(self.house.appearance_values, classic_defaults())
+        self.assertEqual(self.house.appearance_overrides, {})
 
-    def test_stored_appearance_survives_unrelated_settings_saves(self):
-        self.client.post('/settings/', self.fine_tune_payload(accent='#b3456f'))
+    def test_stored_overrides_survive_unrelated_settings_saves(self):
+        self.client.post('/settings/', self.fine_tune_payload(colour_accent='#b3456f'))
         self.house.refresh_from_db()
-        self.assertEqual(self.house.appearance_values['accent'], '#b3456f')
+        self.assertEqual(self.house.appearance_overrides['colour.accent'], '#b3456f')
         self.client.post('/settings/', {'action': 'household', 'name': 'Our home', 'timezone': 'UTC'})
         self.house.refresh_from_db()
-        self.assertEqual(self.house.appearance_values['accent'], '#b3456f')
-        self.assertEqual(self.house.appearance_preset, 'classic')
+        self.assertEqual(self.house.appearance_overrides['colour.accent'], '#b3456f')
+        self.assertEqual(self.house.base_preset, 'classic')
 
     def test_members_cannot_change_appearance(self):
         member = Member.objects.create_user(username='member', display_name='Sam', password='Household-test-5932')
@@ -442,25 +472,61 @@ class AppearanceTests(TestCase):
         session = self.client.session
         session['access_version'] = member.access_version
         session.save()
-        self.assertEqual(self.client.post('/settings/', {'action': 'preset', 'preset': 'warm'}).status_code, 403)
-        self.client.post('/settings/', self.fine_tune_payload())
+        self.assertEqual(self.client.post('/settings/', {'action': 'preset', 'preset': 'soft'}).status_code, 403)
+        self.client.post('/settings/', self.fine_tune_payload(colour_accent='#b3456f'))
         self.house.refresh_from_db()
-        self.assertEqual(self.house.appearance_values, classic_defaults())
+        self.assertEqual(self.house.appearance_overrides, {})
 
     def test_theme_color_tracks_the_active_appearance(self):
         self.assertContains(self.client.get('/'), '<meta name="theme-color" content="#f4f1e9">')
-        self.client.post('/settings/', {'action': 'preset', 'preset': 'warm'})
-        self.assertContains(self.client.get('/'), '<meta name="theme-color" content="#f6ecdd">')
+        self.client.post('/settings/', {'action': 'preset', 'preset': 'minimal'})
+        self.assertContains(self.client.get('/'), '<meta name="theme-color" content="#f7f7f4">')
+
+    def test_page_carries_design_system_attributes_for_active_preset(self):
+        self.assertContains(self.client.get('/'), 'data-nav="topbar"')
+        self.assertContains(self.client.get('/'), 'data-dashboard="grid"')
+        self.assertContains(self.client.get('/'), 'data-dashboard-cols="4"')
+        self.client.post('/settings/', {'action': 'preset', 'preset': 'minimal'})
+        self.assertContains(self.client.get('/'), 'data-nav="sidebar"')
+        self.assertContains(self.client.get('/'), 'data-dashboard="sections"')
+        self.assertContains(self.client.get('/'), 'data-page-width="narrow"')
+        self.assertContains(self.client.get('/'), 'data-density="compact"')
+
+    def test_display_page_reflects_display_attrs_of_preset(self):
+        self.assertContains(self.client.get('/display/preview/'), 'data-display-cols="2"', html=False)
+        self.client.post('/settings/', {'action': 'preset', 'preset': 'dense'})
+        self.assertContains(self.client.get('/display/preview/'), 'data-display-cols="3"', html=False)
+        self.assertContains(self.client.get('/display/preview/'), 'data-display-density="dense"', html=False)
 
     def test_appearance_css_is_public_and_display_permissions_unchanged(self):
         self.client.logout()
         self.assertEqual(self.client.get('/appearance.css').status_code, 200)
+        self.assertEqual(self.client.get('/appearance-display.css').status_code, 200)
         self.assertEqual(self.client.get('/api/state/').status_code, 401)
         self.assertEqual(self.client.get('/api/state/?view=display').status_code, 403)
 
     def test_appearance_css_cache_is_public_but_settings_stays_private(self):
         self.assertEqual(self.client.get('/appearance.css')['Cache-Control'], 'public, max-age=300')
+        self.assertEqual(self.client.get('/appearance-display.css')['Cache-Control'], 'public, max-age=300')
         self.assertIn('no-store', self.client.get('/settings/')['Cache-Control'])
+
+    def test_overrides_from_legacy_keeps_only_real_changes(self):
+        self.assertEqual(overrides_from_legacy('classic', {'accent': '#bd633b', 'radius': 4, 'font_scale': 100}), {})
+        moves = overrides_from_legacy('classic', {'accent': '#b3456f', 'radius': 12, 'shadow': 1, 'spacing': 90})
+        self.assertEqual(moves['colour.accent'], '#b3456f')
+        self.assertEqual(moves['geometry.radius'], 'large')
+        self.assertEqual(moves['geometry.shadow'], 'soft')
+        self.assertEqual(moves['layout.density'], 'compact')
+
+    def test_resolve_attrs_are_stable_and_ordered(self):
+        config = resolve_config('editorial')
+        attrs = appearance_attrs(config)
+        self.assertIn('data-nav="slim"', attrs)
+        self.assertIn('data-dashboard="editorial"', attrs)
+        self.assertIn('data-page-header="prominent"', attrs)
+        display = display_attrs(resolve_config('soft'))
+        self.assertIn('data-display-clock="large"', display)
+        self.assertIn('data-display-type="large"', display)
 
 
 class SetupTests(TestCase):
