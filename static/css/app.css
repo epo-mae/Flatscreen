@@ -90,3 +90,32 @@ a.preset-card:hover{border-top-color:var(--accent)}
 .appearance-demo__card small{color:var(--muted);font-size:.8rem}
 button.secondary-appearance{border-color:#aeb5a8;background:transparent;color:var(--muted)}
 @media(max-width:800px){.appearance-form-grid{grid-template-columns:1fr}.appearance-form p{flex-direction:column;align-items:flex-start}.appearance-form input:not([type="color"]){width:100%;text-align:left}}
+
+/* Dinner planning: saved templates feed the plan and the shared shopping list. */
+.dinner-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:20px}.dinner-heading h2{margin:0}.dinner-heading p{margin-bottom:0}
+.dinner-planning .planning-list{margin-top:22px}
+.dinner-launch{width:100%;margin-bottom:22px;background:var(--wash);color:var(--ink);border-color:#aeb5a8}.dinner-launch:hover{background:var(--ink);color:var(--white)}
+.dinner-picker,.dinner-editor{background:var(--wash);padding:22px;box-shadow:var(--shadow,none);margin-bottom:22px}
+.dinner-picker h3,.dinner-editor-head h3{font-family:Georgia,'Times New Roman',serif;font-size:1.4rem;font-weight:400;margin:2px 0 14px}
+.dinner-search{margin-bottom:14px}
+.dinner-picker-groups{display:grid;gap:6px}
+.dinner-picker-group{margin:10px 0 0}.dinner-picker-group .eyebrow{color:var(--muted);display:block;margin-bottom:6px}
+.dinner-picker-item{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;text-align:left;background:var(--white);border:1px solid var(--line);border-radius:var(--radius,4px);padding:12px 14px;min-height:0;margin-bottom:8px}.dinner-picker-item strong{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:1rem}.dinner-picker-item span{font-size:.72rem;color:var(--muted)}.dinner-picker-item:hover{background:var(--ink);color:var(--white)}.dinner-picker-item:hover span{color:rgba(255,255,255,.8)}
+.dinner-create{margin-top:4px}
+.dinner-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.dinner-name{font-family:Georgia,'Times New Roman',serif;font-size:1.2rem;margin-bottom:14px}
+.editor-cook{display:flex;align-items:center;gap:10px;margin-bottom:16px}.editor-cook label{margin:0;font-size:.75rem;font-weight:600;white-space:nowrap}.editor-cook select,.editor-cook input{width:auto;flex:1;min-width:0}
+.editor-ingredients{display:grid;gap:10px;margin-bottom:10px}.editor-ingredients>.eyebrow{grid-column:1/-1;color:var(--muted);margin-bottom:2px}
+.ingredient-row{display:grid;grid-template-columns:auto minmax(0,1fr) 74px 148px auto;gap:8px;align-items:center}.ingredient-row input[type="checkbox"]{width:auto;min-height:0;height:22px;margin:0}.ingredient-row .ingredient-category{padding:10px;min-height:44px}.ingredient-remove{min-height:44px;padding:0 12px}
+.ingredient-add{margin-bottom:16px}
+.dinner-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.dinner-actions button{flex:1;min-width:170px}
+.dinner-feedback{font-size:.82rem;margin:12px 0 0}.dinner-feedback.error{color:var(--danger)}
+.dinner-row .dinner-ingredients{font-size:.7rem;margin-top:4px}.dinner-row.cancelled{opacity:.65}
+@media(max-width:600px){.ingredient-row{grid-template-columns:auto minmax(0,1fr) auto}.ingredient-row .ingredient-qty{width:70px}.ingredient-row .ingredient-category{grid-column:2/-1}.dinner-actions button{min-width:140px}}
+
+/* Meal and category grouping on the shared shopping list. */
+.list-heading-meta{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.view-toggle{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius,4px);overflow:hidden}.view-toggle button{padding:9px 14px;min-height:0;font-size:.75rem;background:transparent;color:var(--muted);border:0;border-right:1px solid var(--line);border-radius:0}.view-toggle button:last-child{border-right:0}.view-toggle button.active{background:var(--ink);color:var(--white)}
+.group-head{display:flex;align-items:baseline;gap:10px;border-top:2px solid var(--ink);padding-top:14px;margin-top:22px;font-size:.8rem}.group-head:first-child{margin-top:0}.group-head strong{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:1.05rem}.group-head span{font-size:.62rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}.group-head+.shopping-row{border-top:0}
+.item-meal{display:inline-block;font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--wash);border-radius:999px;padding:2px 8px;margin-bottom:5px}
+@media(max-width:800px){.list-heading-meta{align-items:flex-start}}}

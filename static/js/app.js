@@ -8,7 +8,8 @@
   const snapshotKey = 'flatscreen.display.v1';
   const pendingKey = `flatscreen.pending.${app.dataset.member}`;
   let state = null, etag = '', fetching = false, busy = false, presenceBusy = false, failures = 0;
-  let lastSuccess = null, editing = null, pending = null, retrying = false;
+  let lastSuccess = null, editing = null, pending = null, retrying = false, view = 'meal';
+  const CATEGORY_LABELS = {produce:'Produce', meat:'Meat', dairy:'Dairy', bakery:'Bakery', pantry:'Pantry', frozen:'Frozen', drinks:'Drinks', household:'Household', toiletries:'Toiletries', other:'Other'};
   const storage = {
     get(key, session = false) { try { return JSON.parse((session ? sessionStorage : localStorage).getItem(key)); } catch { return null; } },
     set(key, value, session = false) { try { (session ? sessionStorage : localStorage).setItem(key, JSON.stringify(value)); } catch { /* Private browsing may disable storage. */ } },
@@ -44,12 +45,19 @@
     const remaining = state.items.filter(i => !i.purchased);
     const bought = state.items.filter(i => i.purchased);
     $('remaining-count').textContent = remaining.length;
+    if (!display) {
+      const datalist = $('item-suggestions');
+      datalist.replaceChildren(...(state.suggestions || []).map(s => { const o = document.createElement('option'); o.value = s.name; return o; }));
+    }
     const list = $('shopping-list'); list.replaceChildren();
-    const visible = display ? remaining.slice(0, 4) : remaining;
-    visible.forEach((item, index) => list.append(row(item, index)));
     if (!remaining.length) list.append(node('p', 'empty', display ? 'All stocked up. Lovely.' : 'All stocked up. Add the next thing we need.'));
+    else if (display) {
+      remaining.slice(0, 4).forEach((item, index) => list.append(row(item, index)));
+      $('display-overflow').textContent = remaining.length > 4 ? `+ ${remaining.length - 4} more on the shared list` : 'Add something from your personal device.';
+    } else {
+      renderGroups(remaining);
+    }
     if (display) {
-      $('display-overflow').textContent = remaining.length > visible.length ? `+ ${remaining.length - visible.length} more on the shared list` : 'Add something from your personal device.';
       renderDinner();
       renderEvents();
       renderNotice();
@@ -74,6 +82,43 @@
       $('presence-out').classList.toggle('secondary', current !== 'OUT');
       $('presence-home').setAttribute('aria-pressed', String(current === 'HOME'));
       $('presence-out').setAttribute('aria-pressed', String(current === 'OUT'));
+    }
+  }
+  function renderGroups(remaining) {
+    const list = $('shopping-list');
+    const groups = [];
+    const order = state.categories || [];
+    if (view === 'meal') {
+      const seen = new Map();
+      for (const item of remaining) {
+        const key = item.dinner_id ? `dinner:${item.dinner_id}` : 'general';
+        let group = seen.get(key);
+        if (!group) {
+          group = {key, title: key === 'general' ? 'General' : item.dinner || 'Dinner', subtitle: item.dinner_cook ? `${item.dinner_cook} cooking` : '', items: []};
+          seen.set(key, group);
+          groups.push(group);
+        }
+        group.items.push(item);
+      }
+    } else {
+      const by = new Map();
+      for (const item of remaining) {
+        let group = by.get(item.category);
+        if (!group) {
+          group = {key: item.category, title: CATEGORY_LABELS[item.category] || 'Other', subtitle: '', items: []};
+          by.set(item.category, group);
+          groups.push(group);
+        }
+        group.items.push(item);
+      }
+      groups.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+    }
+    for (const group of groups) {
+      const head = node('div', 'group-head');
+      head.append(node('strong', '', group.title));
+      if (group.subtitle) head.append(node('span', '', group.subtitle));
+      list.append(head);
+      group.items.forEach(item => list.append(row(item, 0)));
     }
   }
   function renderToday() {
@@ -109,6 +154,10 @@
     }
     box.append(node('p', 'dinner-main', tonight.cook ? `${tonight.cook} is cooking` : 'Cook not decided'));
     box.append(node('p', 'dinner-meal', tonight.meal || 'Meal not decided'));
+    if (tonight.ingredients !== undefined && tonight.ingredients > 0) {
+      if (tonight.shopping_pending > 0) box.append(node('p', 'dinner-shopping pending', `${tonight.shopping_pending} ${tonight.shopping_pending === 1 ? 'item' : 'items'} still needed`));
+      else box.append(node('p', 'dinner-shopping done', 'Ingredients added to the shared list.'));
+    }
     const next = (state.dinners || []).find(plan => plan.date > state.local_date && plan.happening);
     if (next) {
       const label = dateLabel(next.date);
@@ -203,6 +252,7 @@
       check.setAttribute('aria-pressed', String(item.purchased)); r.append(check);
     }
     const copy = node('div', 'item-copy'); copy.append(node('span', 'item-name', item.name));
+    if (view === 'category' && item.dinner) copy.append(node('span', 'item-meal', item.dinner));
     if (!display) copy.append(node('span', 'item-note', item.note || `Added by ${item.added_by}`));
     r.append(copy);
     if (display) r.append(node('span', 'display-quantity', `×${item.quantity}`));
@@ -320,7 +370,7 @@
     });
   }
   function edit(item) {
-    editing = item; $('edit-name').value = item.name; $('edit-note').value = item.note;
+    editing = item; $('edit-name').value = item.name; $('edit-note').value = item.note; $('edit-category').value = item.category || '';
     $('edit-error').textContent = ''; $('edit-dialog').showModal();
   }
   function tick() {
@@ -344,16 +394,26 @@
     $('add-form').addEventListener('submit', async event => {
       event.preventDefault();
       const form = event.currentTarget;
-      const payload = {action:'add', name:form.elements.name.value, quantity:Number(form.elements.quantity.value), note:form.elements.note.value};
+      const payload = {action:'add', name:form.elements.name.value, quantity:Number(form.elements.quantity.value), note:form.elements.note.value, category:form.elements.category.value};
       if (await send(payload)) { form.reset(); $('item-name').focus(); }
     });
     $('edit-form').addEventListener('submit', async event => {
       event.preventDefault();
-      if (await send({action:'edit', id:editing.id, version:editing.version, name:$('edit-name').value, note:$('edit-note').value})) { $('edit-dialog').close(); editing = null; }
+      if (await send({action:'edit', id:editing.id, version:editing.version, name:$('edit-name').value, note:$('edit-note').value, category:$('edit-category').value})) { $('edit-dialog').close(); editing = null; }
     });
     $('cancel-edit').onclick = () => { $('edit-dialog').close(); editing = null; };
     $('presence-home').onclick = () => setPresence('HOME');
     $('presence-out').onclick = () => setPresence('OUT');
+    function setView(next) {
+      view = next;
+      $('view-meal').classList.toggle('active', view === 'meal');
+      $('view-meal').setAttribute('aria-pressed', String(view === 'meal'));
+      $('view-category').classList.toggle('active', view === 'category');
+      $('view-category').setAttribute('aria-pressed', String(view === 'category'));
+      if (state) renderGroups(state.items.filter(i => !i.purchased));
+    }
+    $('view-meal').onclick = () => setView('meal');
+    $('view-category').onclick = () => setView('category');
     for (const action of ['clear_all', 'clear_purchased']) {
       $(action.replace('_','-')).onclick = async () => {
         const revision = state?.revision;

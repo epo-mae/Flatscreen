@@ -1,4 +1,4 @@
-const CACHE = 'flatscreen-display-shell-v3';
+const CACHE = 'flatscreen-display-shell-v4';
 const SHELL = '/display/offline/';
 const ASSETS = [SHELL, '/appearance.css', '/appearance-display.css', '/static/css/app.css', '/static/css/design.css', '/static/js/app.js', '/static/mark.svg'];
 self.addEventListener('install', event => {
