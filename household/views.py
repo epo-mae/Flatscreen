@@ -206,7 +206,7 @@ def settings_page(request):
                 house.appearance_overrides = {}
                 house.save(update_fields=['appearance_overrides'])
                 bump_revision()
-                messages.success(request, f'Cleared your adjustments on {PRESETS[house.base_preset]["name"]}.')
+                messages.success(request, f'Cleared your adjustments on {PRESETS.get(house.base_preset, PRESETS["classic"])["name"]}.')
                 return redirect('settings')
             elif action == 'reset_classic':
                 house.base_preset = 'classic'
@@ -217,7 +217,7 @@ def settings_page(request):
                 messages.success(request, 'Restored the original Flatscreen look.')
                 return redirect('settings')
     house_config = house.appearance_resolved
-    preset_name = PRESETS[house.base_preset]['name']
+    preset_name = PRESETS.get(house.base_preset, PRESETS['classic'])['name']
     appearance_state = {
         'preset_key': house.base_preset,
         'preset_name': preset_name,

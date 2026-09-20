@@ -374,6 +374,17 @@ class AppearanceTests(TestCase):
             self.assertContains(page, preset['name'])
         self.assertContains(page, 'preset-card--classic is-current')
 
+    def test_settings_survives_a_stale_base_preset(self):
+        # A preset removed from code can still be stored in the database; the
+        # settings page should fall back to Classic instead of crashing.
+        self.house.appearance_overrides = {'colour.accent': '#123456'}
+        self.house.save(update_fields=['appearance_overrides'])
+        Household.objects.filter(pk=self.house.pk).update(base_preset='tech')
+        for path in ('/settings/', '/settings/?preview=classic'):
+            page = self.client.get(path)
+            self.assertEqual(page.status_code, 200, path)
+            self.assertContains(page, 'Classic')
+
     def test_previewing_a_preset_does_not_change_stored_values(self):
         page = self.client.get('/settings/?preview=soft')
         self.assertContains(page, 'appearance.css?preset=soft')
