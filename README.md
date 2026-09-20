@@ -8,6 +8,8 @@ The current foundation includes:
 - Persistent member sessions, administrator/member roles, account deactivation and access revocation.
 - A personal profile where each member changes their own display name and password.
 - A shared shopping list with quantities, notes, purchased state, duplicate handling, CSV export and short undo support.
+- Meal planning with saved dinner templates: pick a past dinner, review its ingredients, choose a cook, then send the selected ingredients straight to the shared shopping list with auto-remembered item names and categories.
+- A shared shopping list that groups remaining items by meal or by category, with spelling and category autocomplete learned across the household.
 - Automatic two-second updates with safe retry IDs and edit conflict detection.
 - A dedicated display layout with pairing, revocation, cached last-known state and reconnect behaviour.
 - Manual HOME/OUT presence backed by event history and shown on the household display.
@@ -50,7 +52,7 @@ This development server is for local development only. Do not expose it to the h
 .\.venv\Scripts\python.exe manage.py check
 ```
 
-The test suite covers authentication, permissions, display data filtering, pairing and revocation, cross-client visibility, CSRF protection, duplicate requests, stale edits, destructive confirmations, account deactivation and input validation.
+The test suite covers authentication, permissions, display data filtering, pairing and revocation, cross-client visibility, CSRF protection, duplicate requests, stale edits, destructive confirmations, account deactivation, input validation, and the meal-planning-to-shopping workflow (saved templates, idempotent dinner saves, ingredient merging, category memory, and display shopping progress).
 
 ## Backups
 
