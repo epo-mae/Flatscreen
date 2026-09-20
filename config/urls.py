@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/state/', shopping.state, name='state'),
     path('api/shopping/', shopping.mutate, name='mutate'),
     path('api/shopping/export/', shopping.export, name='export'),
+    path('api/dinners/', planning.dinner_api, name='dinner_api'),
     path('api/presence/', presence.mutate, name='presence_mutate'),
     path('health/', views.health, name='health'),
 ]

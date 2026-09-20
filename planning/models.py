@@ -2,10 +2,37 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from shopping.models import ItemCategory
+
+
+class SavedDinner(models.Model):
+    """A reusable dinner and shopping template (not a recipe)."""
+    name = models.CharField(max_length=120)
+    uses = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='saved_dinners')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+
+class SavedDinnerIngredient(models.Model):
+    dinner = models.ForeignKey(SavedDinner, on_delete=models.CASCADE, related_name='ingredients')
+    name = models.CharField(max_length=100)
+    normalized_name = models.CharField(max_length=100, db_index=True)
+    quantity = models.PositiveIntegerField(default=1)
+    category = models.CharField(max_length=20, choices=ItemCategory.choices, default=ItemCategory.OTHER)
+
+    class Meta:
+        ordering = ['id']
+        constraints = [models.CheckConstraint(condition=models.Q(quantity__gte=1, quantity__lte=999), name='saved_dinner_ingredient_quantity_range')]
+
 
 class DinnerPlan(models.Model):
     date = models.DateField(unique=True)
     cook = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name='dinner_plans')
+    saved_dinner = models.ForeignKey(SavedDinner, on_delete=models.SET_NULL, null=True, blank=True, related_name='plans')
     meal = models.CharField(max_length=120, blank=True)
     notes = models.CharField(max_length=240, blank=True)
     is_happening = models.BooleanField(default=True)
@@ -16,6 +43,30 @@ class DinnerPlan(models.Model):
 
     class Meta:
         ordering = ['date']
+
+
+class DinnerPlanIngredient(models.Model):
+    """An ingredient for one specific dinner occurrence, so editing an evening
+    never silently rewrites the saved template behind it."""
+    plan = models.ForeignKey(DinnerPlan, on_delete=models.CASCADE, related_name='ingredients')
+    name = models.CharField(max_length=100)
+    normalized_name = models.CharField(max_length=100, db_index=True)
+    quantity = models.PositiveIntegerField(default=1)
+    category = models.CharField(max_length=20, choices=ItemCategory.choices, default=ItemCategory.OTHER)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        constraints = [models.CheckConstraint(condition=models.Q(quantity__gte=1, quantity__lte=999), name='dinner_plan_ingredient_quantity_range')]
+
+
+class PlanningMutation(models.Model):
+    """Idempotency record for the /api/dinners/ endpoint, mirroring shopping.Mutation."""
+    operation_id = models.UUIDField(unique=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='planning_mutations')
+    fingerprint = models.CharField(max_length=64)
+    response = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class CalendarEvent(models.Model):

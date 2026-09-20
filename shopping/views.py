@@ -14,7 +14,8 @@ from django.views.decorators.http import require_GET, require_POST
 from household.models import ActivityEntry, Household, Member, bump_revision
 from household.views import current_display
 from household.weather import get_weather
-from .models import Mutation, ShoppingItem
+from .known import CLASSIFICATION_ORDER, add_shopping_item, known_suggestions, normalize_name, remember_item, resolve_category
+from .models import ItemCategory, Mutation, ShoppingItem
 from presence.models import PresenceEvent
 from planning.models import CalendarEvent, Chore, DinnerPlan, HouseNotice
 
@@ -36,10 +37,14 @@ def state(request):
         if request.headers.get('If-None-Match') == etag:
             response = JsonResponse({}, status=304)
         else:
-            items = ShoppingItem.objects.filter(deleted_at=None).select_related('added_by', 'purchased_by').order_by('purchased', 'added_at', 'id')
+            items = ShoppingItem.objects.filter(deleted_at=None).select_related('added_by', 'purchased_by', 'dinner_plan', 'dinner_plan__cook').order_by('purchased', 'added_at', 'id')
             rows = []
             for item in items:
-                row = {'id': item.pk, 'name': item.name, 'quantity': item.quantity, 'purchased': item.purchased, 'version': item.version}
+                row = {'id': item.pk, 'name': item.name, 'quantity': item.quantity, 'purchased': item.purchased, 'version': item.version,
+                       'category': item.category}
+                if item.dinner_plan_id and not display_mode:
+                    row.update(dinner_id=item.dinner_plan_id, dinner=item.dinner_plan.meal,
+                               dinner_cook=item.dinner_plan.cook.label if item.dinner_plan.cook else None)
                 if not display_mode:
                     row.update(note=item.note, added_by=item.added_by.label,
                         purchased_by=item.purchased_by.label if item.purchased_by else None)
@@ -58,7 +63,11 @@ def state(request):
             now = timezone.now()
             local_date = now.astimezone(ZoneInfo(house.timezone)).date()
             dinners = []
-            for plan in DinnerPlan.objects.filter(date__gte=local_date).select_related('cook')[:4]:
+            for plan in DinnerPlan.objects.filter(date__gte=local_date).select_related('cook').prefetch_related('ingredients')[:4]:
+                ingredient_names = set()
+                for ingredient in plan.ingredients.all():
+                    ingredient_names.add(ingredient.normalized_name)
+                added = set(ShoppingItem.objects.filter(dinner_plan_id=plan.pk, purchased=False, deleted_at=None).values_list('normalized_name', flat=True))
                 dinners.append({
                     'date': plan.date.isoformat(),
                     'cook': plan.cook.label if plan.cook else None,
@@ -66,6 +75,8 @@ def state(request):
                     'notes': plan.notes if not display_mode else '',
                     'happening': plan.is_happening,
                     'time': plan.serving_time.strftime('%H:%M') if plan.serving_time else None,
+                    'ingredients': len(ingredient_names),
+                    'shopping_pending': len(ingredient_names - added),
                 })
             events = []
             for event in CalendarEvent.objects.filter(event_date__gte=local_date, deleted_at=None).select_related('creator')[:3]:
@@ -107,8 +118,11 @@ def state(request):
             data = {
                 'revision': house.revision, 'household': house.name, 'timezone': house.timezone,
                 'items': rows, 'members': members, 'dinners': dinners, 'events': events, 'notices': notices, 'chores': chores,
+                'categories': [category for category, _ in ItemCategory.choices if category in CLASSIFICATION_ORDER],
                 'local_date': local_date.isoformat(), 'weather': weather,
             }
+            if not display_mode:
+                data['suggestions'] = known_suggestions(12)
             response = JsonResponse(data)
         response['ETag'] = etag
         return response
@@ -158,23 +172,42 @@ def mutate(request):
             name = ' '.join(str(data.get('name', '')).split())
             note = str(data.get('note', '')).strip()
             quantity = data.get('quantity', 1)
+            category = data.get('category')
             if not name or len(name) > 100 or len(note) > 240 or type(quantity) is not int or not 1 <= quantity <= 999:
                 return error('Enter a name, a quantity from 1 to 999, and a note under 241 characters.')
-            normalized = name.casefold()
-            existing = ShoppingItem.objects.filter(normalized_name=normalized, purchased=False, deleted_at=None).first()
-            if existing and data.get('duplicate') not in ('merge', 'separate'):
-                return error(f'{existing.name} is already on the list. Increase its quantity?', 409, duplicate=True)
-            if existing and data.get('duplicate') == 'merge':
-                if existing.quantity + quantity > 999:
-                    return error('Combined quantity cannot exceed 999.')
-                existing.quantity += quantity
-                existing.version += 1
-                existing.save(update_fields=['quantity', 'version'])
-                item = existing
+            if category is not None and category not in ItemCategory.values:
+                return error('Choose a known category.')
+            dinner_id = data.get('dinner')
+            if dinner_id is not None:
+                if type(dinner_id) is not int:
+                    return error('Choose a valid dinner to add from.')
+                dinner_plan = DinnerPlan.objects.filter(pk=dinner_id).first()
+                if not dinner_plan:
+                    return error('That dinner is no longer planned.', 404)
+                item, merged = add_shopping_item(request.user, name=name, quantity=quantity, note=note, category=category, dinner_plan=dinner_plan)
+                result['merged'] = merged
             else:
-                item = ShoppingItem.objects.create(name=name, normalized_name=normalized, quantity=quantity, note=note, added_by=request.user)
+                normalized = normalize_name(name)
+                existing = ShoppingItem.objects.filter(normalized_name=normalized, purchased=False, deleted_at=None).first()
+                if existing and data.get('duplicate') not in ('merge', 'separate'):
+                    return error(f'{existing.name} is already on the list. Increase its quantity?', 409,
+                                 duplicate=True, duplicate_name=existing.name, duplicate_quantity=existing.quantity,
+                                 duplicate_category=existing.category, duplicate_note=existing.note)
+                if existing and data.get('duplicate') == 'merge':
+                    if existing.quantity + quantity > 999:
+                        return error('Combined quantity cannot exceed 999.')
+                    existing.quantity += quantity
+                    existing.version += 1
+                    existing.save(update_fields=['quantity', 'version'])
+                    remember_item(name, category)
+                    item = existing
+                else:
+                    item = ShoppingItem.objects.create(name=name, normalized_name=normalized, quantity=quantity, note=note,
+                                                       category=category or resolve_category(name, None), added_by=request.user)
+                    remember_item(item.name, category)
             description = f'Added {quantity} × {name}'
             result['item_id'] = item.pk
+            result['category'] = item.category
         elif action in ('clear_all', 'clear_purchased'):
             if data.get('confirmed') is not True:
                 return error('Confirm before clearing items.')
@@ -212,9 +245,15 @@ def mutate(request):
             elif action == 'edit':
                 name = ' '.join(str(data.get('name', '')).split())
                 note = str(data.get('note', '')).strip()
+                category = data.get('category')
                 if not name or len(name) > 100 or len(note) > 240:
                     return error('Enter a name under 101 characters and a note under 241 characters.')
+                if category is not None and category not in ItemCategory.values:
+                    return error('Choose a known category.')
                 item.name, item.normalized_name, item.note = name, name.casefold(), note
+                if category:
+                    item.category = category
+                remember_item(name, category)
                 description = f'Edited {name}'
             elif action == 'delete':
                 item.deleted_at = timezone.now()
